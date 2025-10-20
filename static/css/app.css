@@ -1,0 +1,227 @@
+/* SendCraft Custom Styles */
+
+:root {
+    --sc-primary: #0d6efd;
+    --sc-success: #198754;
+    --sc-warning: #ffc107;
+    --sc-danger: #dc3545;
+    --sc-info: #0dcaf0;
+    --sc-dark: #212529;
+}
+
+/* Base Styles */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+main {
+    flex: 1 0 auto;
+}
+
+/* Loading states */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+/* Cards enhancement */
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: 1px solid rgba(0, 0, 0, 0.125);
+    transition: all 0.15s ease-in-out;
+}
+
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.card-header {
+    background-color: rgba(0, 0, 0, 0.03);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+/* Status badges and indicators */
+.status-sent, .status-delivered { color: var(--sc-success); }
+.status-failed { color: var(--sc-danger); }
+.status-pending, .status-sending { color: var(--sc-warning); }
+.status-bounced { color: var(--sc-info); }
+
+/* Email log styling */
+.email-log {
+    border-left: 4px solid transparent;
+    transition: all 0.15s ease;
+}
+
+.email-log:hover {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+.email-log.status-sent,
+.email-log.status-delivered {
+    border-left-color: var(--sc-success);
+}
+
+.email-log.status-failed {
+    border-left-color: var(--sc-danger);
+}
+
+.email-log.status-pending,
+.email-log.status-sending {
+    border-left-color: var(--sc-warning);
+}
+
+/* Table improvements */
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.03);
+}
+
+/* Form enhancements */
+.form-label {
+    font-weight: 500;
+    color: #495057;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--sc-primary);
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+/* Chart containers */
+.chart-container {
+    position: relative;
+    height: 300px;
+}
+
+/* Navigation active state */
+.navbar-nav .nav-link.active {
+    color: #fff !important;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 0.25rem;
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+    .navbar-brand strong {
+        display: none;
+    }
+    
+    .card-body .h2 {
+        font-size: 1.5rem;
+    }
+    
+    .btn-group-sm {
+        display: none;
+    }
+}
+
+/* HTMX loading indicators */
+.htmx-indicator {
+    opacity: 0;
+    transition: opacity 200ms ease-in;
+}
+
+.htmx-request .htmx-indicator {
+    opacity: 1;
+}
+
+.htmx-request.htmx-indicator {
+    opacity: 1;
+}
+
+/* Spinner for HTMX */
+.htmx-indicator.spinner-border {
+    width: 1rem;
+    height: 1rem;
+    border-width: 0.15em;
+}
+
+/* Toast notifications */
+.toast-container {
+    z-index: 1050;
+}
+
+/* Utility classes */
+.text-monospace {
+    font-family: 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+}
+
+.border-start-success {
+    border-left: 4px solid var(--sc-success) !important;
+}
+
+.border-start-danger {
+    border-left: 4px solid var(--sc-danger) !important;
+}
+
+.border-start-warning {
+    border-left: 4px solid var(--sc-warning) !important;
+}
+
+.border-start-info {
+    border-left: 4px solid var(--sc-info) !important;
+}
+
+/* Code editor styling */
+.code-editor {
+    font-family: 'SFMono-Regular', Menlo, Monaco, Consolas, monospace;
+    font-size: 0.875rem;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    min-height: 200px;
+}
+
+/* Pagination */
+.pagination {
+    margin-bottom: 0;
+}
+
+/* Empty states */
+.empty-state {
+    padding: 3rem 1.5rem;
+    text-align: center;
+}
+
+.empty-state-icon {
+    font-size: 4rem;
+    color: #6c757d;
+}
+
+/* Dark mode toggle (future enhancement) */
+[data-bs-theme="dark"] {
+    --sc-primary: #4a90e2;
+    --sc-success: #5cb85c;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease-in;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}

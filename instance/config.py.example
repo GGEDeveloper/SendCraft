@@ -1,0 +1,27 @@
+"""
+Configuração de instância para SendCraft.
+Copie este ficheiro para config.py e ajuste as configurações.
+ATENÇÃO: Nunca faça commit do ficheiro config.py real!
+"""
+
+# Security
+SECRET_KEY = 'your-secret-key-here-change-in-production'
+ENCRYPTION_KEY = 'your-encryption-key-here-must-be-32-bytes'
+
+# API Keys (formato: key_name -> key)
+API_KEYS = {
+    'alitools.pt': 'SC_ak47n9B2xQ8vE5mF3jK6pL9tR7wY4uI1oP0sA8dG5hJ2cV6nM9bX3zT8qE5rW7y',
+    'test': 'SC_TEST_KEY'  # Para testes locais
+}
+
+# Database (Production)
+# SQLALCHEMY_DATABASE_URI = 'sqlite:////home/username/sendcraft/sendcraft.db'
+
+# Email Defaults
+DEFAULT_SMTP_SERVER = 'smtp.antispamcloud.com'
+DEFAULT_SMTP_PORT = 587
+DEFAULT_USE_TLS = True
+
+# Logging
+LOG_LEVEL = 'INFO'
+LOG_FILE = '/home/username/sendcraft/logs/sendcraft.log'
