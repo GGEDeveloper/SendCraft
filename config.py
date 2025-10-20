@@ -1,6 +1,6 @@
 """
 Configuração base da aplicação SendCraft.
-Hierarquia: config.py → instance/config.py → environment variables
+MySQL/MariaDB único para desenvolvimento e produção.
 """
 import os
 from typing import Type
@@ -12,10 +12,18 @@ class Config:
     # Flask
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-key-change-me'
     
-    # Database
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///sendcraft.db'
+    # Database - MySQL único
+    SQLALCHEMY_DATABASE_URI = os.environ.get('MYSQL_URL') or 'mysql://sendcraft:password@localhost:3306/sendcraft'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_RECORD_QUERIES = True
+    
+    # MySQL Connection Pooling
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_size': 5,
+        'pool_timeout': 20,
+        'pool_recycle': 3600,
+        'pool_pre_ping': True,
+    }
     
     # SendCraft
     DEFAULT_FROM_NAME = os.environ.get('DEFAULT_FROM_NAME') or 'SendCraft'
@@ -26,7 +34,7 @@ class Config:
     API_RATE_LIMIT = os.environ.get('API_RATE_LIMIT') or '100/hour'
     
     # Email
-    DEFAULT_SMTP_SERVER = os.environ.get('DEFAULT_SMTP_SERVER') or 'localhost'
+    DEFAULT_SMTP_SERVER = os.environ.get('DEFAULT_SMTP_SERVER') or 'smtp.antispamcloud.com'
     DEFAULT_SMTP_PORT = int(os.environ.get('DEFAULT_SMTP_PORT') or 587)
     DEFAULT_USE_TLS = os.environ.get('DEFAULT_USE_TLS', 'true').lower() == 'true'
     
@@ -38,7 +46,6 @@ class Config:
 class DevelopmentConfig(Config):
     """Configuração de desenvolvimento."""
     DEBUG = True
-    SQLALCHEMY_ECHO = True
 
 
 class ProductionConfig(Config):
@@ -50,7 +57,8 @@ class ProductionConfig(Config):
 class TestingConfig(Config):
     """Configuração de testes."""
     TESTING = True
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    # Usar mesmo MySQL para testes, base diferente
+    SQLALCHEMY_DATABASE_URI = os.environ.get('MYSQL_TEST_URL') or 'mysql://sendcraft:password@localhost:3306/sendcraft_test'
 
 
 config: dict[str, Type[Config]] = {
