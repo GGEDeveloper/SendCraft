@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Domínios - SendCraft{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="h2">
+            <i class="bi bi-globe2 me-2"></i>
+            Domínios
+        </h1>
+        <p class="text-muted">Gerir domínios de email configurados</p>
+    </div>
+    <div class="col-auto">
+        <a href="{{ url_for('web.domain_new') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i>
+            Novo Domínio
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if domains %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Domínio</th>
+                        <th>Status</th>
+                        <th>Contas</th>
+                        <th>Templates</th>
+                        <th>Criado em</th>
+                        <th width="150">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for domain in domains %}
+                    <tr>
+                        <td>
+                            <div>
+                                <strong>{{ domain.name }}</strong>
+                                {% if domain.description %}
+                                <br><small class="text-muted">{{ domain.description }}</small>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            {% if domain.is_active %}
+                                <span class="badge bg-success">Ativo</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inativo</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-info">{{ domain.accounts_active }}</span>
+                            <small class="text-muted">/ {{ domain.accounts_total }}</small>
+                        </td>
+                        <td>
+                            <span class="badge bg-primary">{{ domain.templates_active }}</span>
+                            <small class="text-muted">/ {{ domain.templates_total }}</small>
+                        </td>
+                        <td>
+                            <small>{{ domain.created_at.strftime('%d/%m/%Y') if domain.created_at }}</small>
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a href="{{ url_for('web.domain_detail', domain_id=domain.id) }}" 
+                                   class="btn btn-outline-primary" 
+                                   data-bs-toggle="tooltip" 
+                                   title="Ver Detalhes">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{{ url_for('web.domain_edit', domain_id=domain.id) }}" 
+                                   class="btn btn-outline-secondary"
+                                   data-bs-toggle="tooltip" 
+                                   title="Editar">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <button type="button" 
+                                        class="btn btn-outline-danger"
+                                        onclick="if(confirm('Tem certeza que deseja deletar este domínio?')) { 
+                                            document.getElementById('delete-form-{{ domain.id }}').submit(); 
+                                        }"
+                                        data-bs-toggle="tooltip" 
+                                        title="Deletar">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                            <form id="delete-form-{{ domain.id }}" 
+                                  action="{{ url_for('web.domain_delete', domain_id=domain.id) }}" 
+                                  method="POST" 
+                                  style="display: none;">
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-globe empty-state-icon"></i>
+            <h4 class="mt-3">Nenhum Domínio Configurado</h4>
+            <p class="text-muted">Configure seu primeiro domínio para começar a enviar emails.</p>
+            <a href="{{ url_for('web.domain_new') }}" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-1"></i>
+                Adicionar Domínio
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

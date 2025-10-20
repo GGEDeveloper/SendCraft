@@ -7,5 +7,5 @@ from flask import Blueprint
 # Criar blueprint
 web_bp = Blueprint('web', __name__)
 
-# Importar rotas (serão implementadas na FASE 4)
-# from . import dashboard, domains, templates
+# Importar rotas
+from . import dashboard, domains, templates_routes, accounts, logs
