@@ -92,6 +92,10 @@ def register_blueprints(app: Flask) -> None:
     
     app.register_blueprint(api_v1_bp, url_prefix='/api/v1')
     app.register_blueprint(web_bp)
+    
+    # Registrar error handlers
+    from .api.errors import register_error_handlers
+    register_error_handlers(app)
 
 
 def register_commands(app: Flask) -> None:

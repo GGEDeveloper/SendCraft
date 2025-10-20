@@ -8,9 +8,10 @@ ATENÇÃO: Nunca faça commit do ficheiro config.py real!
 SECRET_KEY = 'your-secret-key-here-change-in-production'
 ENCRYPTION_KEY = 'your-encryption-key-here-must-be-32-bytes'
 
-# API Keys (formato: domain -> key)
+# API Keys (formato: key_name -> key)
 API_KEYS = {
-    'alitools.pt': 'SC_ak47n9B2xQ8vE5mF3jK6pL9tR7wY4uI1oP0sA8dG5hJ2cV6nM9bX3zT8qE5rW7y'
+    'alitools.pt': 'SC_ak47n9B2xQ8vE5mF3jK6pL9tR7wY4uI1oP0sA8dG5hJ2cV6nM9bX3zT8qE5rW7y',
+    'test': 'SC_TEST_KEY'  # Para testes locais
 }
 
 # Database (Production)
