@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Log Detail{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Log Detail #{{ log.id if log else 'N/A' }}</h5>
+                </div>
+                <div class="card-body">
+                    {% if log %}
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>From:</strong> {{ log.from_address or 'N/A' }}</p>
+                            <p><strong>To:</strong> {{ log.to_address or 'N/A' }}</p>
+                            <p><strong>Subject:</strong> {{ log.subject or 'N/A' }}</p>
+                            <p><strong>Status:</strong> 
+                                {% if log.status == 'sent' %}
+                                    <span class="badge bg-success">Sent</span>
+                                {% elif log.status == 'delivered' %}
+                                    <span class="badge bg-primary">Delivered</span>
+                                {% elif log.status == 'failed' %}
+                                    <span class="badge bg-danger">Failed</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ log.status or 'Unknown' }}</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Created:</strong> {{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else 'N/A' }}</p>
+                            <p><strong>Updated:</strong> {{ log.updated_at.strftime('%Y-%m-%d %H:%M:%S') if log.updated_at else 'N/A' }}</p>
+                        </div>
+                    </div>
+                    
+                    {% if log.error_message %}
+                    <div class="mt-3">
+                        <h6>Error Message:</h6>
+                        <div class="alert alert-danger">
+                            {{ log.error_message }}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% else %}
+                    <p class="text-muted">Log not found.</p>
+                    {% endif %}
+                    
+                    <div class="mt-3">
+                        <a href="{{ url_for('web.logs_list') }}" class="btn btn-secondary">← Back to Logs</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
