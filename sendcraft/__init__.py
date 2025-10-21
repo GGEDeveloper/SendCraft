@@ -130,13 +130,15 @@ def register_commands(app: Flask) -> None:
         init_db_command,
         create_admin_command,
         test_smtp_command,
-        clean_logs_command
+        clean_logs_command,
+        seed_imap_command
     )
     
     app.cli.add_command(init_db_command)
     app.cli.add_command(create_admin_command)
     app.cli.add_command(test_smtp_command)
     app.cli.add_command(clean_logs_command)
+    app.cli.add_command(seed_imap_command)
     
     # Adicionar comando seed-local-data se disponível
     try:

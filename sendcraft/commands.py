@@ -104,3 +104,42 @@ def clean_logs_command(days: int) -> None:
         click.echo(f'❌ Erro ao limpar logs: {e}', err=True)
         logger.error(f'Failed to clean logs: {e}')
         raise
+
+
+@click.command()
+@click.option('--force', is_flag=True, help='Force recreate account if exists')
+@click.option('--test', is_flag=True, help='Test IMAP connection')
+@click.option('--sync', type=int, default=0, help='Sync initial emails (specify limit)')
+@with_appcontext
+def seed_imap_command(force: bool, test: bool, sync: int) -> None:
+    """
+    Seed AliTools IMAP account with real configuration.
+    
+    Usage:
+        flask seed-imap
+        flask seed-imap --force --test --sync 50
+    """
+    try:
+        from .cli.seed_imap_account import seed_alitools_imap_account, test_imap_connection, sync_initial_emails
+        
+        click.echo('📧 Seeding AliTools IMAP account...')
+        
+        # Seed account
+        account = seed_alitools_imap_account(force=force)
+        
+        # Test connection if requested
+        if test:
+            click.echo('🔍 Testing IMAP connection...')
+            test_imap_connection(account)
+        
+        # Sync emails if requested
+        if sync > 0:
+            click.echo(f'🔄 Syncing {sync} initial emails...')
+            sync_initial_emails(limit=sync)
+        
+        click.echo('✅ IMAP account seeding completed successfully!')
+        
+    except Exception as e:
+        click.echo(f'❌ Error: {e}', err=True)
+        logger.error(f'Failed to seed IMAP account: {e}')
+        raise

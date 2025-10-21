@@ -7,6 +7,7 @@ from .domain import Domain
 from .account import EmailAccount
 from .template import EmailTemplate
 from .log import EmailLog, EmailStatus
+from .email_inbox import EmailInbox
 
 __all__ = [
     'BaseModel',
@@ -16,5 +17,6 @@ __all__ = [
     'EmailAccount', 
     'EmailTemplate',
     'EmailLog',
-    'EmailStatus'
+    'EmailStatus',
+    'EmailInbox'
 ]

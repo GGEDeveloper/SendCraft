@@ -8,7 +8,7 @@ from flask import Blueprint, jsonify
 api_v1_bp = Blueprint('api_v1', __name__)
 
 # Importar sub-blueprints
-from . import send, accounts, templates, logs, health
+from . import send, accounts, templates, logs, health, emails_inbox
 
 # Registrar sub-blueprints
 api_v1_bp.register_blueprint(send.bp)
@@ -16,6 +16,7 @@ api_v1_bp.register_blueprint(accounts.bp)
 api_v1_bp.register_blueprint(templates.bp)
 api_v1_bp.register_blueprint(logs.bp)
 api_v1_bp.register_blueprint(health.bp)
+api_v1_bp.register_blueprint(emails_inbox.bp)
 
 # Rota raiz da API
 @api_v1_bp.route('/', methods=['GET'])
@@ -49,6 +50,17 @@ def api_info():
                     'domain': 'GET /api/v1/stats/domain/<domain>',
                     'global': 'GET /api/v1/stats/global'
                 }
+            },
+            'inbox': {
+                'list': 'GET /api/v1/inbox/<account_id>',
+                'get': 'GET /api/v1/inbox/<account_id>/<email_id>',
+                'threads': 'GET /api/v1/inbox/<account_id>/threads',
+                'sync': 'POST /api/v1/inbox/sync/<account_id>',
+                'mark_read': 'PUT /api/v1/inbox/<account_id>/<email_id>/read',
+                'toggle_flag': 'PUT /api/v1/inbox/<account_id>/<email_id>/flag',
+                'delete': 'DELETE /api/v1/inbox/<account_id>/<email_id>',
+                'move': 'PUT /api/v1/inbox/<account_id>/<email_id>/move',
+                'stats': 'GET /api/v1/inbox/<account_id>/stats'
             }
         },
         'authentication': 'Bearer token in Authorization header',
