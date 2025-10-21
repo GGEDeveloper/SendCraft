@@ -321,7 +321,7 @@ async function previewTemplate() {
         let previewText = textBody;
         
         for (const [key, value] of Object.entries(sampleData)) {
-            const regex = new RegExp(`{{${key}}}`, 'g');
+            const regex = new RegExp('{{' + key + '}}', 'g');
             previewSubject = previewSubject.replace(regex, value);
             previewHtml = previewHtml.replace(regex, value);
             previewText = previewText.replace(regex, value);
@@ -336,7 +336,7 @@ async function previewTemplate() {
     } else {
         // Template existente - buscar preview do servidor
         try {
-            const response = await fetch(`/templates/${templateId}/preview`, {
+            const response = await fetch('/templates/' + templateId + '/preview', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
             });
