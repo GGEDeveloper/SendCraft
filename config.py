@@ -1,23 +1,34 @@
 """
-Configuração base da aplicação SendCraft.
-MySQL/MariaDB único para desenvolvimento e produção.
+SendCraft - Sistema de Configurações Modulares
+Suporta: local (SQLite), development (Remote MySQL), production (MySQL local)
 """
 import os
-from typing import Type
+from typing import Type, Dict, Any
 
 
-class Config:
-    """Configuração base."""
+class BaseConfig:
+    """Configuração base comum a todos os ambientes"""
     
-    # Flask
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-key-change-me'
+    # Flask Core
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'sendcraft-dev-key-change-in-production'
     
-    # Database - MySQL único
-    SQLALCHEMY_DATABASE_URI = os.environ.get('MYSQL_URL') or 'mysql://sendcraft:password@localhost:3306/sendcraft'
+    # SendCraft Core
+    DEFAULT_FROM_NAME = os.environ.get('DEFAULT_FROM_NAME') or 'SendCraft Email Manager'
+    ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY') or 'sendcraft-encryption-32-chars-key!!'
+    
+    # API Configuration
+    API_RATE_LIMIT = os.environ.get('API_RATE_LIMIT') or '1000/hour'
+    API_KEY_REQUIRED = os.environ.get('API_KEY_REQUIRED', 'false').lower() == 'true'
+    API_KEYS = {}  # Populated from instance config
+    
+    # SMTP Defaults
+    DEFAULT_SMTP_SERVER = os.environ.get('DEFAULT_SMTP_SERVER') or 'smtp.antispamcloud.com'
+    DEFAULT_SMTP_PORT = int(os.environ.get('DEFAULT_SMTP_PORT') or 587)
+    DEFAULT_USE_TLS = os.environ.get('DEFAULT_USE_TLS', 'true').lower() == 'true'
+    
+    # Database Base Settings
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_RECORD_QUERIES = True
-    
-    # MySQL Connection Pooling
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_size': 5,
         'pool_timeout': 20,
@@ -25,45 +36,139 @@ class Config:
         'pool_pre_ping': True,
     }
     
-    # SendCraft
-    DEFAULT_FROM_NAME = os.environ.get('DEFAULT_FROM_NAME') or 'SendCraft'
-    ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY') or 'dev-encryption-key'
-    
-    # API
-    API_KEYS = {}  # Populated from instance config
-    API_RATE_LIMIT = os.environ.get('API_RATE_LIMIT') or '100/hour'
-    
-    # Email
-    DEFAULT_SMTP_SERVER = os.environ.get('DEFAULT_SMTP_SERVER') or 'smtp.antispamcloud.com'
-    DEFAULT_SMTP_PORT = int(os.environ.get('DEFAULT_SMTP_PORT') or 587)
-    DEFAULT_USE_TLS = os.environ.get('DEFAULT_USE_TLS', 'true').lower() == 'true'
+    # Pagination
+    PAGINATION_PER_PAGE = 20
     
     # Logging
     LOG_LEVEL = os.environ.get('LOG_LEVEL') or 'INFO'
     LOG_FILE = os.environ.get('LOG_FILE') or 'sendcraft.log'
+    LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
 
-class DevelopmentConfig(Config):
-    """Configuração de desenvolvimento."""
+class LocalConfig(BaseConfig):
+    """Configuração para desenvolvimento local (SQLite)"""
+    
     DEBUG = True
+    TESTING = False
+    FLASK_ENV = 'local'
+    
+    # SQLite local - sem MySQL
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///sendcraft_local.db'
+    
+    # Logging detalhado
+    LOG_LEVEL = 'DEBUG'
+    SQLALCHEMY_ECHO = True  # Ver SQL queries
+    
+    # SMTP Mock (sem envios reais)
+    SMTP_TESTING_MODE = True
+    
+    # Security relaxed para desenvolvimento
+    WTF_CSRF_ENABLED = False
 
 
-class ProductionConfig(Config):
-    """Configuração de produção."""
+class DevelopmentConfig(BaseConfig):
+    """Configuração para desenvolvimento remoto (Remote MySQL direto → dominios.pt)"""
+    
+    DEBUG = True
+    TESTING = False
+    FLASK_ENV = 'development'
+    
+    # MySQL remoto direto (sem SSH tunnel)
+    SQLALCHEMY_DATABASE_URI = os.environ.get('MYSQL_URL') or \
+        'mysql+pymysql://artnshin_sendcraft:g>bxZmj%25=JZt9Z%2Ci@artnshine.pt:3306/artnshin_sendcraft'
+    
+    # Remote MySQL Configuration (sem SSH)
+    MYSQL_REMOTE_HOST = 'artnshine.pt'
+    MYSQL_REMOTE_PORT = 3306
+    
+    # Connection settings para MySQL remoto
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_size': 3,  # Menos conexões para remoto
+        'pool_timeout': 30,
+        'pool_recycle': 1800,  # Reciclar mais frequentemente
+        'pool_pre_ping': True,
+        'connect_args': {
+            'connect_timeout': 20,  # Timeout maior para conexão remota
+            'read_timeout': 20,
+            'write_timeout': 20
+        }
+    }
+    
+    # Logging moderado
+    LOG_LEVEL = 'INFO'
+    SQLALCHEMY_ECHO = False
+
+
+class ProductionConfig(BaseConfig):
+    """Configuração para produção (MySQL local no servidor)"""
+    
     DEBUG = False
     TESTING = False
+    FLASK_ENV = 'production'
+    
+    # MySQL local no servidor (localhost)
+    SQLALCHEMY_DATABASE_URI = os.environ.get('MYSQL_URL') or \
+        'mysql+pymysql://artnshin_sendcraft:g>bxZmj%25=JZt9Z%2Ci@localhost:3306/artnshin_sendcraft'
+    
+    # Production Security
+    SESSION_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    
+    # Performance para MySQL local
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_size': 10,
+        'pool_timeout': 30,
+        'pool_recycle': 7200,
+        'pool_pre_ping': True,
+        'connect_args': {
+            'connect_timeout': 10,
+            'read_timeout': 10,
+            'write_timeout': 10
+        }
+    }
+    
+    # Logging production
+    LOG_LEVEL = 'WARNING'
+    SQLALCHEMY_ECHO = False
 
 
-class TestingConfig(Config):
-    """Configuração de testes."""
+class TestingConfig(BaseConfig):
+    """Configuração para testes"""
+    
+    DEBUG = True
     TESTING = True
-    # Usar mesmo MySQL para testes, base diferente
-    SQLALCHEMY_DATABASE_URI = os.environ.get('MYSQL_TEST_URL') or 'mysql://sendcraft:password@localhost:3306/sendcraft_test'
+    FLASK_ENV = 'testing'
+    
+    # SQLite em memória para testes rápidos
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    
+    # Disable external connections for testing
+    WTF_CSRF_ENABLED = False
+    SMTP_TESTING_MODE = True
 
 
-config: dict[str, Type[Config]] = {
-    'development': DevelopmentConfig,
+# Registry de configurações
+config: Dict[str, Type[BaseConfig]] = {
+    'local': LocalConfig,
+    'development': DevelopmentConfig, 
     'production': ProductionConfig,
     'testing': TestingConfig,
-    'default': DevelopmentConfig
+    'default': LocalConfig  # Default para development local
 }
+
+
+def get_config(config_name: str = None) -> Type[BaseConfig]:
+    """
+    Retorna configuração baseada no ambiente.
+    
+    Args:
+        config_name: Nome da configuração (local|development|production|testing)
+        
+    Returns:
+        Classe de configuração apropriada
+    """
+    if not config_name:
+        config_name = os.environ.get('FLASK_ENV', 'local')
+    
+    return config.get(config_name, config['default'])
