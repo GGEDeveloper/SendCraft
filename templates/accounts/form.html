@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar' if account else 'Nova' }} Conta - SendCraft{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item">
+            <a href="{{ url_for('web.dashboard') }}">
+                <i class="bi bi-house-door me-1"></i>Dashboard
+            </a>
+        </li>
+        <li class="breadcrumb-item">
+            <a href="{{ url_for('web.accounts_list') }}">
+                <i class="bi bi-envelope me-1"></i>Contas
+            </a>
+        </li>
+        <li class="breadcrumb-item active">{{ 'Editar' if account else 'Nova' }}</li>
+    </ol>
+</nav>
+
+<!-- Header -->
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="h2">
+            <i class="bi bi-envelope me-2 text-success"></i>
+            {{ 'Editar Conta' if account else 'Nova Conta' }}
+        </h1>
+        <p class="text-muted">
+            {{ account.email_address if account else 'Configure uma nova conta SMTP para envios' }}
+        </p>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Formulário -->
+    <div class="col-lg-8">
+        <form method="POST" id="accountForm">
+            
+            <!-- Informações Básicas -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-person-badge me-2"></i>
+                        Informações Básicas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="domain_id" class="form-label">
+                                Domínio <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select" id="domain_id" name="domain_id" required>
+                                <option value="">Selecione...</option>
+                                {% for domain in domains %}
+                                    <option value="{{ domain.id }}" 
+                                            {{ 'selected' if account and account.domain_id == domain.id }}>
+                                        {{ domain.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="local_part" class="form-label">
+                                Parte Local <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="local_part" 
+                                       name="local_part" 
+                                       value="{{ account.local_part if account else '' }}"
+                                       placeholder="encomendas"
+                                       required>
+                                <span class="input-group-text" id="domainSuffix">@domínio</span>
+                            </div>
+                            <div class="form-text">Parte antes do @</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="display_name" class="form-label">Nome de Exibição</label>
+                        <input type="text" 
+                               class="form-control" 
+                               id="display_name" 
+                               name="display_name" 
+                               value="{{ account.display_name if account else '' }}"
+                               placeholder="AliTools Encomendas">
+                        <div class="form-text">Nome que aparece como remetente</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Configurações SMTP -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-gear me-2"></i>
+                        Configurações SMTP
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label for="smtp_server" class="form-label">
+                                Servidor SMTP <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="smtp_server" 
+                                   name="smtp_server" 
+                                   value="{{ account.smtp_server if account else '' }}"
+                                   placeholder="smtp.exemplo.com"
+                                   required>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <label for="smtp_port" class="form-label">
+                                Porta <span class="text-danger">*</span>
+                            </label>
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="smtp_port" 
+                                   name="smtp_port" 
+                                   value="{{ account.smtp_port if account else 587 }}"
+                                   required>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="smtp_username" class="form-label">
+                                Username <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="smtp_username" 
+                                   name="smtp_username" 
+                                   value="{{ account.smtp_username if account else '' }}"
+                                   required>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="smtp_password" class="form-label">
+                                Password {% if not account %}<span class="text-danger">*</span>{% endif %}
+                            </label>
+                            <input type="password" 
+                                   class="form-control" 
+                                   id="smtp_password" 
+                                   name="smtp_password"
+                                   {{ 'required' if not account else '' }}>
+                            {% if account %}
+                            <div class="form-text">Deixar vazio para manter a atual</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" 
+                                       type="checkbox" 
+                                       id="use_tls" 
+                                       name="use_tls"
+                                       {{ 'checked' if not account or account.use_tls }}>
+                                <label class="form-check-label" for="use_tls">
+                                    Usar TLS
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" 
+                                       type="checkbox" 
+                                       id="use_ssl" 
+                                       name="use_ssl"
+                                       {{ 'checked' if account and account.use_ssl }}>
+                                <label class="form-check-label" for="use_ssl">
+                                    Usar SSL
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Limites -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-speedometer me-2"></i>
+                        Limites de Envio
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="daily_limit" class="form-label">
+                                Limite Diário <span class="text-danger">*</span>
+                            </label>
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="daily_limit" 
+                                   name="daily_limit" 
+                                   value="{{ account.daily_limit if account else 1000 }}"
+                                   required>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="monthly_limit" class="form-label">
+                                Limite Mensal <span class="text-danger">*</span>
+                            </label>
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="monthly_limit" 
+                                   name="monthly_limit" 
+                                   value="{{ account.monthly_limit if account else 20000 }}"
+                                   required>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Status -->
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" 
+                               type="checkbox" 
+                               id="is_active" 
+                               name="is_active"
+                               {{ 'checked' if not account or account.is_active }}>
+                        <label class="form-check-label" for="is_active">
+                            Conta Ativa
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Botões -->
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-check-circle me-1"></i>
+                    {{ 'Atualizar' if account else 'Criar' }} Conta
+                </button>
+                <a href="{{ url_for('web.accounts_list') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>
+                    Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Preview Email -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-eye me-2"></i>
+                    Preview Email
+                </h6>
+            </div>
+            <div class="card-body text-center">
+                <div class="bg-light rounded p-3">
+                    <h5 id="emailPreview">
+                        <span id="previewLocal">{{ account.local_part if account else 'conta' }}</span>@<span id="previewDomain">{{ account.domain.name if account else 'dominio' }}</span>
+                    </h5>
+                    <small class="text-muted" id="previewDisplay">
+                        {{ account.display_name if account else 'Nome de Exibição' }}
+                    </small>
+                </div>
+                
+                {% if account %}
+                <hr>
+                <button type="button" class="btn btn-outline-info btn-sm" onclick="testSMTP()">
+                    <i class="bi bi-wifi me-1"></i>
+                    Testar Conexão SMTP
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        
+        {% if account %}
+        <!-- Estatísticas -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-graph-up me-2"></i>
+                    Estatísticas
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6 mb-2">
+                        <h5 class="text-info">{{ account.emails_sent_today }}</h5>
+                        <small class="text-muted">Enviados Hoje</small>
+                    </div>
+                    <div class="col-6 mb-2">
+                        <h5 class="text-primary">{{ account.emails_sent_this_month }}</h5>
+                        <small class="text-muted">Este Mês</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Update email preview
+document.getElementById('domain_id').addEventListener('change', updatePreview);
+document.getElementById('local_part').addEventListener('input', updatePreview);
+document.getElementById('display_name').addEventListener('input', updatePreview);
+
+function updatePreview() {
+    const domainSelect = document.getElementById('domain_id');
+    const selectedOption = domainSelect.options[domainSelect.selectedIndex];
+    const domainName = selectedOption ? selectedOption.text : 'dominio';
+    
+    const localPart = document.getElementById('local_part').value || 'conta';
+    const displayName = document.getElementById('display_name').value || 'Nome de Exibição';
+    
+    document.getElementById('previewLocal').textContent = localPart;
+    document.getElementById('previewDomain').textContent = domainName;
+    document.getElementById('previewDisplay').textContent = displayName;
+    document.getElementById('domainSuffix').textContent = '@' + domainName;
+}
+
+updatePreview();
+
+{% if account %}
+// Test SMTP
+async function testSMTP() {
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Testando...';
+    
+    try {
+        const response = await fetch('/api/accounts/{{ account.id }}/test-smtp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast('Conexão SMTP bem-sucedida!', 'success');
+        } else {
+            showToast(`Erro: ${result.error}`, 'danger');
+        }
+    } catch (error) {
+        showToast('Erro ao testar conexão', 'danger');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+{% endif %}
+
+// Toast function
+function showToast(message, type = 'success') {
+    const toastHtml = `
+        <div class="toast align-items-center text-bg-${type} border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    
+    const container = document.getElementById('toast-container');
+    container.insertAdjacentHTML('beforeend', toastHtml);
+    
+    const toast = new bootstrap.Toast(container.lastElementChild);
+    toast.show();
+}
+</script>
+{% endblock %}

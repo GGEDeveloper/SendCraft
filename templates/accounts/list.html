@@ -1,0 +1,334 @@
+{% extends "base.html" %}
+
+{% block title %}Contas de Email - SendCraft{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="row mb-4">
+    <div class="col">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('web.dashboard') }}">
+                        <i class="bi bi-house-door me-1"></i>Dashboard
+                    </a>
+                </li>
+                <li class="breadcrumb-item active">Contas Email</li>
+            </ol>
+        </nav>
+        
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h2">
+                    <i class="bi bi-envelope me-2 text-success"></i>
+                    Contas de Email
+                </h1>
+                <p class="text-muted">Configure contas SMTP para envio de emails</p>
+            </div>
+            <div>
+                <a href="{{ url_for('web.accounts_new') }}" class="btn btn-success">
+                    <i class="bi bi-plus-circle me-1"></i>
+                    Nova Conta
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-4">
+                <input type="text" 
+                       name="search" 
+                       class="form-control" 
+                       value="{{ search }}" 
+                       placeholder="Procurar contas...">
+            </div>
+            <div class="col-md-3">
+                <select name="domain" class="form-select">
+                    <option value="">Todos os domínios</option>
+                    {% for domain in domains %}
+                        <option value="{{ domain.name }}" {{ 'selected' if domain_filter == domain.name }}>
+                            {{ domain.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="status" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="active">Ativas</option>
+                    <option value="inactive">Inativas</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-funnel me-1"></i>Filtrar
+                </button>
+                <a href="{{ url_for('web.accounts_list') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-circle"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabela de Contas -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="bi bi-list-ul me-2"></i>
+            Contas Configuradas
+            {% if accounts.total %}
+                <span class="badge bg-primary ms-2">{{ accounts.total }}</span>
+            {% endif %}
+        </h5>
+    </div>
+    <div class="card-body p-0">
+        {% if accounts.items %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Conta Email</th>
+                        <th class="text-center">Status</th>
+                        <th class="text-center">SMTP</th>
+                        <th class="text-center">Hoje</th>
+                        <th class="text-center">Mês</th>
+                        <th width="150" class="text-center">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for account in accounts.items %}
+                    <tr>
+                        <td>
+                            <div>
+                                <strong>{{ account.email_address }}</strong>
+                                <br>
+                                <small class="text-muted">
+                                    {{ account.display_name or 'Sem nome de exibição' }}
+                                </small>
+                            </div>
+                        </td>
+                        
+                        <td class="text-center">
+                            {% if account.is_active %}
+                                <span class="badge bg-success">Ativa</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inativa</span>
+                            {% endif %}
+                        </td>
+                        
+                        <td class="text-center">
+                            <span class="badge bg-{{ 'success' if account.smtp_status == 'connected' else 'warning' }}" 
+                                  id="smtp-status-{{ account.id }}">
+                                {{ 'OK' if account.smtp_status == 'connected' else 'Não testado' }}
+                            </span>
+                            <br>
+                            <small class="text-muted">
+                                {{ account.smtp_server }}:{{ account.smtp_port }}
+                            </small>
+                        </td>
+                        
+                        <td class="text-center">
+                            <span class="badge bg-info">{{ account.emails_sent_today }}</span>
+                            <div class="progress mt-1" style="height: 4px;">
+                                <div class="progress-bar" 
+                                     style="width: {{ (account.emails_sent_today / account.daily_limit * 100) if account.daily_limit else 0 }}%"></div>
+                            </div>
+                            <small class="text-muted">de {{ account.daily_limit }}</small>
+                        </td>
+                        
+                        <td class="text-center">
+                            <span class="badge bg-primary">{{ account.emails_sent_this_month }}</span>
+                            <div class="progress mt-1" style="height: 4px;">
+                                <div class="progress-bar" 
+                                     style="width: {{ (account.emails_sent_this_month / account.monthly_limit * 100) if account.monthly_limit else 0 }}%"></div>
+                            </div>
+                            <small class="text-muted">de {{ account.monthly_limit }}</small>
+                        </td>
+                        
+                        <td class="text-center">
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-info"
+                                        onclick="testSMTP({{ account.id }})"
+                                        title="Testar SMTP">
+                                    <i class="bi bi-wifi"></i>
+                                </button>
+                                <a href="{{ url_for('web.accounts_edit', account_id=account.id) }}" 
+                                   class="btn btn-outline-primary"
+                                   title="Editar">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <button class="btn btn-outline-danger"
+                                        onclick="confirmDelete({{ account.id }}, '{{ account.email_address }}')"
+                                        title="Eliminar">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginação -->
+        {% if accounts.pages > 1 %}
+        <div class="card-footer">
+            <nav aria-label="Navegação">
+                <ul class="pagination pagination-sm justify-content-center mb-0">
+                    {% if accounts.has_prev %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('web.accounts_list', page=accounts.prev_num, search=search, domain=domain_filter) }}">
+                                <i class="bi bi-chevron-left"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                    
+                    {% for page_num in accounts.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                        {% if page_num %}
+                            {% if page_num != accounts.page %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('web.accounts_list', page=page_num, search=search, domain=domain_filter) }}">
+                                        {{ page_num }}
+                                    </a>
+                                </li>
+                            {% else %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ page_num }}</span>
+                                </li>
+                            {% endif %}
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">…</span>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if accounts.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('web.accounts_list', page=accounts.next_num, search=search, domain=domain_filter) }}">
+                                <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <!-- Estado Vazio -->
+        <div class="text-center py-5">
+            <i class="bi bi-envelope text-muted" style="font-size: 4rem;"></i>
+            <h4 class="text-muted mt-3">Nenhuma Conta Configurada</h4>
+            
+            {% if domains %}
+                <p class="text-muted">Configure sua primeira conta de email para começar a enviar.</p>
+                <a href="{{ url_for('web.accounts_new') }}" class="btn btn-success">
+                    <i class="bi bi-plus-circle me-1"></i>
+                    Criar Primeira Conta
+                </a>
+            {% else %}
+                <p class="text-muted">
+                    Primeiro crie um domínio antes de configurar contas.
+                </p>
+                <a href="{{ url_for('web.domains_new') }}" class="btn btn-primary">
+                    <i class="bi bi-globe2 me-1"></i>
+                    Criar Domínio
+                </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal Delete -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Eliminar Conta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja eliminar a conta <strong id="deleteAccountEmail"></strong>?</p>
+                <p class="text-danger mb-0">Esta ação não pode ser desfeita.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash me-1"></i>Eliminar
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Testar conexão SMTP
+async function testSMTP(accountId) {
+    const statusBadge = document.getElementById(`smtp-status-${accountId}`);
+    statusBadge.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Testando...';
+    statusBadge.className = 'badge bg-warning';
+    
+    try {
+        const response = await fetch(`/api/accounts/${accountId}/test-smtp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            statusBadge.innerHTML = '<i class="bi bi-check-circle me-1"></i>OK';
+            statusBadge.className = 'badge bg-success';
+            showToast('Conexão SMTP bem-sucedida!', 'success');
+        } else {
+            statusBadge.innerHTML = '<i class="bi bi-x-circle me-1"></i>Erro';
+            statusBadge.className = 'badge bg-danger';
+            showToast(`Erro SMTP: ${result.error}`, 'danger');
+        }
+    } catch (error) {
+        statusBadge.innerHTML = 'Erro';
+        statusBadge.className = 'badge bg-danger';
+        showToast('Erro ao testar conexão', 'danger');
+    }
+}
+
+// Confirmar delete
+function confirmDelete(accountId, accountEmail) {
+    document.getElementById('deleteAccountEmail').textContent = accountEmail;
+    document.getElementById('deleteForm').action = `/accounts/${accountId}/delete`;
+    
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    modal.show();
+}
+
+// Toast notifications
+function showToast(message, type = 'success') {
+    const toastHtml = `
+        <div class="toast align-items-center text-bg-${type} border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    
+    const container = document.getElementById('toast-container');
+    container.insertAdjacentHTML('beforeend', toastHtml);
+    
+    const toastElement = container.lastElementChild;
+    const toast = new bootstrap.Toast(toastElement);
+    toast.show();
+}
+</script>
+{% endblock %}

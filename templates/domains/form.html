@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar' if domain else 'Novo' }} Domínio - SendCraft{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item">
+            <a href="{{ url_for('web.dashboard') }}" class="text-decoration-none">
+                <i class="bi bi-house-door me-1"></i>Dashboard
+            </a>
+        </li>
+        <li class="breadcrumb-item">
+            <a href="{{ url_for('web.domains_list') }}" class="text-decoration-none">
+                <i class="bi bi-globe2 me-1"></i>Domínios
+            </a>
+        </li>
+        <li class="breadcrumb-item active">{{ 'Editar' if domain else 'Novo' }}</li>
+    </ol>
+</nav>
+
+<!-- Header -->
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="h2">
+            <i class="bi bi-globe2 me-2 text-primary"></i>
+            {{ 'Editar Domínio' if domain else 'Novo Domínio' }}
+        </h1>
+        <p class="text-muted">
+            {{ 'Alterar configurações do domínio ' + domain.name if domain else 'Configure um novo domínio para envio de emails' }}
+        </p>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Formulário -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-gear me-2"></i>
+                    Configurações do Domínio
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="domainForm">
+                    <!-- Nome do Domínio -->
+                    <div class="mb-3">
+                        <label for="name" class="form-label">
+                            Nome do Domínio <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" 
+                               class="form-control" 
+                               id="name" 
+                               name="name" 
+                               value="{{ domain.name if domain else '' }}"
+                               placeholder="exemplo: alitools.pt"
+                               required
+                               {{ 'readonly' if domain else '' }}>
+                        <div class="form-text">
+                            {{ 'O nome do domínio não pode ser alterado após criação.' if domain else 'Formato válido: exemplo.com' }}
+                        </div>
+                    </div>
+                    
+                    <!-- Descrição -->
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Descrição</label>
+                        <textarea class="form-control" 
+                                  id="description" 
+                                  name="description" 
+                                  rows="3"
+                                  placeholder="Descrição opcional do domínio">{{ domain.description if domain else '' }}</textarea>
+                    </div>
+                    
+                    <!-- Status -->
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" 
+                                   type="checkbox" 
+                                   id="is_active" 
+                                   name="is_active"
+                                   {{ 'checked' if not domain or domain.is_active else '' }}>
+                            <label class="form-check-label" for="is_active">
+                                Domínio Ativo
+                            </label>
+                        </div>
+                        <div class="form-text">
+                            Apenas domínios ativos podem enviar emails.
+                        </div>
+                    </div>
+                    
+                    <!-- Botões -->
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-1"></i>
+                            {{ 'Atualizar' if domain else 'Criar' }} Domínio
+                        </button>
+                        <a href="{{ url_for('web.domains_list') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>
+                            Cancelar
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sidebar Info -->
+    <div class="col-lg-4">
+        {% if domain %}
+        <!-- Estatísticas -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-graph-up me-2"></i>
+                    Estatísticas
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6 mb-3">
+                        <h4 class="text-primary">{{ domain.accounts.count() }}</h4>
+                        <small class="text-muted">Contas</small>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <h4 class="text-success">{{ domain.templates.count() }}</h4>
+                        <small class="text-muted">Templates</small>
+                    </div>
+                </div>
+                <hr>
+                <small class="text-muted">
+                    <i class="bi bi-calendar me-1"></i>
+                    Criado: {{ domain.created_at.strftime('%d/%m/%Y') }}
+                </small>
+            </div>
+        </div>
+        
+        <!-- Ações Rápidas -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-lightning me-2"></i>
+                    Ações Rápidas
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('web.accounts_list', domain=domain.name) }}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-envelope me-1"></i>
+                        Ver Contas
+                    </a>
+                    <a href="{{ url_for('web.templates_list', domain=domain.name) }}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-file-text me-1"></i>
+                        Ver Templates
+                    </a>
+                    {% if domain.accounts.count() == 0 and domain.templates.count() == 0 %}
+                    <button type="button" class="btn btn-outline-danger btn-sm" 
+                            onclick="confirmDelete()">
+                        <i class="bi bi-trash me-1"></i>
+                        Eliminar Domínio
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <!-- Ajuda -->
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h6 class="mb-0">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Dicas
+                </h6>
+            </div>
+            <div class="card-body">
+                <small>
+                    <ul class="mb-0">
+                        <li>Use formato: exemplo.com</li>
+                        <li>Não inclua http:// ou https://</li>
+                        <li>O nome não pode ser alterado depois</li>
+                        <li>Poderá adicionar contas de email após criar o domínio</li>
+                    </ul>
+                </small>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if domain %}
+<!-- Modal Confirmar Delete -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Eliminação</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja eliminar o domínio <strong>{{ domain.name }}</strong>?</p>
+                <p class="text-danger mb-0">Esta ação não pode ser desfeita.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form method="POST" action="{{ url_for('web.domains_delete', domain_id=domain.id) }}" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash me-1"></i>
+                        Eliminar
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Validação do formulário
+document.getElementById('domainForm').addEventListener('submit', function(e) {
+    const nameInput = document.getElementById('name');
+    if (!nameInput.readOnly) {
+        const value = nameInput.value.trim();
+        const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]?\.[a-zA-Z]{2,}$/;
+        
+        if (!domainRegex.test(value)) {
+            e.preventDefault();
+            alert('Por favor insira um domínio válido (ex: exemplo.com)');
+            nameInput.focus();
+        }
+    }
+});
+
+{% if domain %}
+function confirmDelete() {
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    modal.show();
+}
+{% endif %}
+</script>
+{% endblock %}

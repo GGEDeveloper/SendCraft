@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+
+{% block title %}Templates de Email - SendCraft{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="row mb-4">
+    <div class="col">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('web.dashboard') }}">
+                        <i class="bi bi-house-door me-1"></i>Dashboard
+                    </a>
+                </li>
+                <li class="breadcrumb-item active">Templates</li>
+            </ol>
+        </nav>
+        
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h2">
+                    <i class="bi bi-file-earmark-text me-2 text-info"></i>
+                    Templates de Email
+                </h1>
+                <p class="text-muted">Gerencie modelos de email reutilizáveis</p>
+            </div>
+            <div>
+                <a href="{{ url_for('web.templates_new') }}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle me-1"></i>
+                    Novo Template
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-4">
+                <select name="domain" class="form-select">
+                    <option value="">Todos os domínios</option>
+                    {% for domain in domains %}
+                        <option value="{{ domain.name }}" {{ 'selected' if domain_filter == domain.name }}>
+                            {{ domain.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select name="category" class="form-select">
+                    <option value="">Todas as categorias</option>
+                    {% for cat in categories %}
+                        <option value="{{ cat }}" {{ 'selected' if category_filter == cat }}>
+                            {{ cat }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-funnel me-1"></i>Filtrar
+                </button>
+                <a href="{{ url_for('web.templates_list') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-circle"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Grid de Templates -->
+<div class="row">
+    {% if templates.items %}
+        {% for template in templates.items %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100 {{ 'border-success' if template.is_active else 'border-secondary' }}">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="mb-0">{{ template.template_name }}</h6>
+                            <small class="text-muted">{{ template.template_key }}</small>
+                        </div>
+                        {% if template.is_active %}
+                            <span class="badge bg-success">Ativo</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Inativo</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="small mb-2">
+                        <strong>Assunto:</strong> {{ template.subject[:50] }}{{ '...' if template.subject|length > 50 }}
+                    </p>
+                    <p class="small mb-2">
+                        <strong>Domínio:</strong> {{ template.domain.name }}
+                    </p>
+                    {% if template.category %}
+                    <p class="small mb-2">
+                        <strong>Categoria:</strong> {{ template.category }}
+                    </p>
+                    {% endif %}
+                    <p class="small mb-0">
+                        <strong>Versão:</strong> {{ template.version }}
+                    </p>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <div class="btn-group btn-group-sm w-100">
+                        <button class="btn btn-outline-info" onclick="previewTemplate({{ template.id }})" title="Preview">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <a href="{{ url_for('web.templates_edit', template_id=template.id) }}" 
+                           class="btn btn-outline-primary" title="Editar">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <button class="btn btn-outline-danger" 
+                                onclick="confirmDelete({{ template.id }}, '{{ template.template_name }}')"
+                                title="Eliminar">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        
+        <!-- Paginação -->
+        {% if templates.pages > 1 %}
+        <div class="col-12">
+            <nav aria-label="Navegação">
+                <ul class="pagination justify-content-center">
+                    {% if templates.has_prev %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('web.templates_list', page=templates.prev_num, domain=domain_filter, category=category_filter) }}">
+                                <i class="bi bi-chevron-left"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                    
+                    {% for page_num in templates.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                        {% if page_num %}
+                            {% if page_num != templates.page %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('web.templates_list', page=page_num, domain=domain_filter, category=category_filter) }}">
+                                        {{ page_num }}
+                                    </a>
+                                </li>
+                            {% else %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ page_num }}</span>
+                                </li>
+                            {% endif %}
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">…</span>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if templates.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('web.templates_list', page=templates.next_num, domain=domain_filter, category=category_filter) }}">
+                                <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+        
+    {% else %}
+    <!-- Estado Vazio -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-file-earmark-text text-muted" style="font-size: 4rem;"></i>
+                <h4 class="text-muted mt-3">Nenhum Template Encontrado</h4>
+                <p class="text-muted">Crie templates reutilizáveis para seus emails.</p>
+                <a href="{{ url_for('web.templates_new') }}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle me-1"></i>
+                    Criar Primeiro Template
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal Preview -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Preview Template</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <h6>Assunto:</h6>
+                <p id="previewSubject" class="border p-2 bg-light"></p>
+                <h6>Conteúdo:</h6>
+                <div id="previewContent" class="border p-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Delete -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Eliminar Template</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja eliminar o template <strong id="deleteTemplateName"></strong>?</p>
+                <p class="text-danger mb-0">Esta ação não pode ser desfeita.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash me-1"></i>Eliminar
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Preview template
+async function previewTemplate(templateId) {
+    try {
+        const response = await fetch(`/templates/${templateId}/preview`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            document.getElementById('previewSubject').textContent = result.subject;
+            document.getElementById('previewContent').innerHTML = result.html;
+            
+            const modal = new bootstrap.Modal(document.getElementById('previewModal'));
+            modal.show();
+        } else {
+            alert('Erro ao carregar preview');
+        }
+    } catch (error) {
+        alert('Erro ao carregar preview');
+    }
+}
+
+// Confirm delete
+function confirmDelete(templateId, templateName) {
+    document.getElementById('deleteTemplateName').textContent = templateName;
+    document.getElementById('deleteForm').action = `/templates/${templateId}/delete`;
+    
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    modal.show();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,360 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar' if template else 'Novo' }} Template - SendCraft{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item">
+            <a href="{{ url_for('web.dashboard') }}">
+                <i class="bi bi-house-door me-1"></i>Dashboard
+            </a>
+        </li>
+        <li class="breadcrumb-item">
+            <a href="{{ url_for('web.templates_list') }}">
+                <i class="bi bi-file-text me-1"></i>Templates
+            </a>
+        </li>
+        <li class="breadcrumb-item active">{{ 'Editar' if template else 'Novo' }}</li>
+    </ol>
+</nav>
+
+<!-- Header -->
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="h2">
+            <i class="bi bi-file-earmark-text me-2 text-info"></i>
+            {{ 'Editar Template' if template else 'Novo Template' }}
+        </h1>
+        <p class="text-muted">
+            {{ template.template_name if template else 'Crie um modelo reutilizável para emails' }}
+        </p>
+    </div>
+</div>
+
+<form method="POST" id="templateForm">
+    <div class="row">
+        <!-- Editor Principal -->
+        <div class="col-lg-8">
+            <!-- Informações Básicas -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Informações Básicas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="domain_id" class="form-label">
+                                Domínio <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select" id="domain_id" name="domain_id" required>
+                                <option value="">Selecione...</option>
+                                {% for domain in domains %}
+                                    <option value="{{ domain.id }}" 
+                                            {{ 'selected' if template and template.domain_id == domain.id }}>
+                                        {{ domain.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="template_key" class="form-label">
+                                Chave do Template <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="template_key" 
+                                   name="template_key" 
+                                   value="{{ template.template_key if template else '' }}"
+                                   placeholder="order_confirmation"
+                                   required
+                                   {{ 'readonly' if template else '' }}>
+                            <div class="form-text">Identificador único (não pode ser alterado)</div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label for="template_name" class="form-label">
+                                Nome do Template <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="template_name" 
+                                   name="template_name" 
+                                   value="{{ template.template_name if template else '' }}"
+                                   placeholder="Confirmação de Encomenda"
+                                   required>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <label for="category" class="form-label">Categoria</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="category" 
+                                   name="category" 
+                                   value="{{ template.category if template else '' }}"
+                                   placeholder="Transacional">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Conteúdo do Email -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-envelope-open me-2"></i>
+                        Conteúdo do Email
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="subject" class="form-label">
+                            Assunto <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" 
+                               class="form-control" 
+                               id="subject" 
+                               name="subject" 
+                               value="{{ template.subject if template else '' }}"
+                               placeholder="Sua encomenda #{{encomenda_numero}} foi confirmada"
+                               required>
+                        <div class="form-text">Use {{variavel}} para campos dinâmicos</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="html_body" class="form-label">Conteúdo HTML</label>
+                        <textarea class="form-control" 
+                                  id="html_body" 
+                                  name="html_body" 
+                                  rows="10"
+                                  placeholder="<h1>Olá {{cliente_nome}}</h1>">{{ template.html_body if template else '' }}</textarea>
+                        <div class="form-text">HTML para emails ricos</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="text_body" class="form-label">Conteúdo Texto</label>
+                        <textarea class="form-control" 
+                                  id="text_body" 
+                                  name="text_body" 
+                                  rows="6"
+                                  placeholder="Olá {{cliente_nome}}">{{ template.text_body if template else '' }}</textarea>
+                        <div class="form-text">Versão texto simples (fallback)</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Configurações -->
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" 
+                               type="checkbox" 
+                               id="is_active" 
+                               name="is_active"
+                               {{ 'checked' if not template or template.is_active }}>
+                        <label class="form-check-label" for="is_active">
+                            Template Ativo
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Botões -->
+            <div class="d-flex gap-2 mb-4">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-circle me-1"></i>
+                    {{ 'Atualizar' if template else 'Criar' }} Template
+                </button>
+                <button type="button" class="btn btn-outline-info" onclick="previewTemplate()">
+                    <i class="bi bi-eye me-1"></i>
+                    Preview
+                </button>
+                <a href="{{ url_for('web.templates_list') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>
+                    Cancelar
+                </a>
+            </div>
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Variáveis -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="bi bi-braces me-2"></i>
+                        Variáveis
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="variables" class="form-label">Variáveis Disponíveis</label>
+                        <textarea class="form-control" 
+                                  id="variables" 
+                                  name="variables" 
+                                  rows="5"
+                                  placeholder="cliente_nome
+encomenda_numero
+total
+data">{{ template.variables if template else '' }}</textarea>
+                        <div class="form-text">Uma variável por linha</div>
+                    </div>
+                    
+                    <div class="alert alert-info small mb-0">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Use {{variavel}} no template para substituição dinâmica
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Informações -->
+            {% if template %}
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="bi bi-info-square me-2"></i>
+                        Informações
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <small class="text-muted">
+                        <strong>Versão:</strong> {{ template.version }}<br>
+                        <strong>Criado:</strong> {{ template.created_at.strftime('%d/%m/%Y') }}<br>
+                        <strong>Atualizado:</strong> {{ template.updated_at.strftime('%d/%m/%Y') }}
+                    </small>
+                </div>
+            </div>
+            {% else %}
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0">
+                        <i class="bi bi-lightbulb me-2"></i>
+                        Dicas
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <small>
+                        <ul class="mb-0">
+                            <li>Use variáveis para conteúdo dinâmico</li>
+                            <li>Teste o template antes de usar</li>
+                            <li>Mantenha HTML simples para compatibilidade</li>
+                            <li>Sempre forneça versão texto</li>
+                        </ul>
+                    </small>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</form>
+
+<!-- Modal Preview -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Preview Template</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <h6>Assunto:</h6>
+                    <p id="previewSubject" class="border p-2 bg-light"></p>
+                </div>
+                <div>
+                    <ul class="nav nav-tabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#htmlTab" type="button">
+                                HTML
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#textTab" type="button">
+                                Texto
+                            </button>
+                        </li>
+                    </ul>
+                    <div class="tab-content border border-top-0 p-3">
+                        <div class="tab-pane fade show active" id="htmlTab">
+                            <div id="previewHtml"></div>
+                        </div>
+                        <div class="tab-pane fade" id="textTab">
+                            <pre id="previewText" class="mb-0"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Preview template
+async function previewTemplate() {
+    const templateId = {{ template.id if template else 'null' }};
+    
+    // Se é novo template, fazer preview local
+    if (!templateId) {
+        const subject = document.getElementById('subject').value;
+        const htmlBody = document.getElementById('html_body').value;
+        const textBody = document.getElementById('text_body').value;
+        
+        // Substituir variáveis exemplo
+        const sampleData = {
+            cliente_nome: 'João Silva',
+            encomenda_numero: 'ALI-2025-001',
+            total: '149.99',
+            data: new Date().toLocaleDateString('pt-PT')
+        };
+        
+        let previewSubject = subject;
+        let previewHtml = htmlBody;
+        let previewText = textBody;
+        
+        for (const [key, value] of Object.entries(sampleData)) {
+            const regex = new RegExp(`{{${key}}}`, 'g');
+            previewSubject = previewSubject.replace(regex, value);
+            previewHtml = previewHtml.replace(regex, value);
+            previewText = previewText.replace(regex, value);
+        }
+        
+        document.getElementById('previewSubject').textContent = previewSubject;
+        document.getElementById('previewHtml').innerHTML = previewHtml;
+        document.getElementById('previewText').textContent = previewText;
+        
+        const modal = new bootstrap.Modal(document.getElementById('previewModal'));
+        modal.show();
+    } else {
+        // Template existente - buscar preview do servidor
+        try {
+            const response = await fetch(`/templates/${templateId}/preview`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                document.getElementById('previewSubject').textContent = result.subject;
+                document.getElementById('previewHtml').innerHTML = result.html;
+                document.getElementById('previewText').textContent = result.text || 'Sem versão texto';
+                
+                const modal = new bootstrap.Modal(document.getElementById('previewModal'));
+                modal.show();
+            }
+        } catch (error) {
+            alert('Erro ao carregar preview');
+        }
+    }
+}
+</script>
+{% endblock %}

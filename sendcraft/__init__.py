@@ -88,7 +88,8 @@ def register_blueprints(app: Flask) -> None:
         app: Instância da aplicação Flask
     """
     from .api.v1 import api_v1_bp
-    from .web import web_bp
+    # Importar do novo local
+    from .routes.web import web_bp
     
     app.register_blueprint(api_v1_bp, url_prefix='/api/v1')
     app.register_blueprint(web_bp)
