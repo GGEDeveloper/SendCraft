@@ -1,0 +1,21 @@
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION BEGIN
+PassengerAppRoot "/home/artnshin/public_html/sendcraft"
+PassengerBaseURI "/"
+PassengerPython "/home/artnshin/virtualenv/public_html/sendcraft/3.9/bin/python"
+PassengerAppLogFile "/home/artnshin/logs/sendcraft_passenger.log"
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END
+PassengerEnabled on
+PassengerAppRoot /home/artnshin/public_html/sendcraft
+PassengerStartupFile passenger_wsgi.py
+PassengerPython /home/artnshin/virtualenv/public_html/sendcraft/3.9/bin/python
+# Environment variables
+SetEnv FLASK_ENV production
+SetEnv MYSQL_URL mysql+pymysql://artnshin_sendcraft:g>bxZmj%=JZt9Z,i@localhost:3306/artnshin_sendcraft
+# Security
+<Files "instance/*">
+    Require all denied
+</Files>
+# Allow Python files
+<FilesMatch "\.py$">
+    Require all granted
+</FilesMatch>
