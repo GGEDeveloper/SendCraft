@@ -396,8 +396,14 @@ class EmailClient {
             const response = await fetch(`/api/v1/emails/inbox/sync/${this.accountId}`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
-                }
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    folder: 'INBOX',
+                    limit: 20,
+                    full_sync: false
+                })
             });
 
             if (!response.ok) {
