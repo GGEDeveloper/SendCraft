@@ -53,6 +53,11 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {{ 'active' if 'inbox' in request.endpoint }}" href="{{ url_for('web.emails_inbox') }}">
+                            <i class="bi bi-inbox me-1"></i>Caixa de Entrada
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {{ 'active' if 'template' in request.endpoint }}" href="{{ url_for('web.templates_list') }}">
                             <i class="bi bi-file-earmark-text me-1"></i>Templates
                         </a>

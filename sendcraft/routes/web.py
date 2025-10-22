@@ -954,6 +954,35 @@ def api_stats_accounts():
         return jsonify({'error': str(e)}), 500
 
 
+# ===== EMAIL INBOX ROUTES =====
+@web_bp.route('/emails/inbox')
+def emails_inbox():
+    """Email inbox interface - three-pane email client"""
+    from ..models.account import EmailAccount
+    
+    # Get the first active email account (encomendas@alitools.pt)
+    account = EmailAccount.query.filter_by(
+        email_address='encomendas@alitools.pt',
+        is_active=True
+    ).first()
+    
+    # If no account with that email, try to find any active account
+    if not account:
+        account = EmailAccount.query.filter_by(is_active=True).first()
+    
+    if not account:
+        flash('Nenhuma conta de email configurada. Por favor, configure uma conta primeiro.', 'warning')
+        return redirect(url_for('web.accounts_list'))
+    
+    # Build the complete email address if needed
+    if not hasattr(account, 'email_address') or not account.email_address:
+        account.email_address = f"{account.local_part}@{account.domain.name}"
+    
+    return render_template('emails/inbox.html', 
+                         account=account,
+                         page_title=f'Caixa de Entrada - {account.email_address}')
+
+
 # ERROR HANDLERS
 @web_bp.errorhandler(404)
 def not_found_error(error):
