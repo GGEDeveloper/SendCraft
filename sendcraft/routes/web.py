@@ -960,7 +960,7 @@ def emails_inbox():
     """Email inbox interface - three-pane email client"""
     from ..models.account import EmailAccount
     
-    # Get the first active email account (encomendas@alitools.pt)
+    # Get the first active email account (geral@alitools.pt)
     account = EmailAccount.query.filter_by(
         email_address='geral@alitools.pt',
         is_active=True
