@@ -12,7 +12,7 @@ from ..errors import APIError, BadRequest, NotFound, ServerError
 logger = get_logger(__name__)
 
 # Criar blueprint
-bp = Blueprint('inbox', __name__, url_prefix='/inbox')
+bp = Blueprint('inbox', __name__, url_prefix='/emails/inbox')
 
 
 @bp.route('/<int:account_id>', methods=['GET'])
