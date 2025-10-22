@@ -1,4 +1,20 @@
+---
 deployment:
   tasks:
+    # Deploy files
     - export DEPLOYPATH=/home/artnshin/public_html/sendcraft
     - /bin/cp -R * $DEPLOYPATH
+    
+    # Install dependencies
+    - cd $DEPLOYPATH
+    - /home/artnshin/virtualenv/public_html/sendcraft/3.9/bin/pip install -r requirements.txt
+    
+    # Set permissions  
+    - chmod +x $DEPLOYPATH/app.py
+    - chmod +x $DEPLOYPATH/passenger_wsgi.py
+    
+    # Create logs directory
+    - mkdir -p /home/artnshin/logs
+    
+    # Restart Python app (opcional)
+    - touch $DEPLOYPATH/tmp/restart.txt

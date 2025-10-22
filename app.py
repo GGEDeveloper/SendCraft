@@ -1,40 +1,37 @@
 #!/usr/bin/env python3
 """
-SendCraft Email Manager - Entry Point
-Main application entry point for development server.
+SendCraft Production Entry Point
+cPanel Python App entry point for email.artnshine.pt
 """
 import os
 import sys
-from typing import Optional
+from pathlib import Path
 
-# Adicionar o diretório atual ao path (importante para cPanel)
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Add project root to Python path
+project_root = Path(__file__).parent
+sys.path.insert(0, str(project_root))
 
-from sendcraft import create_app
-
-# Criar aplicação
-app = create_app(os.environ.get('FLASK_ENV', 'development'))
-
+def application(environ, start_response):
+    """WSGI application entry point for cPanel Passenger"""
+    from sendcraft import create_app
+    
+    # Force production environment
+    os.environ['FLASK_ENV'] = 'production'
+    
+    # Create Flask app in production mode
+    app = create_app('production')
+    
+    return app(environ, start_response)
 
 if __name__ == '__main__':
-    # Configuração para desenvolvimento
-    port = int(os.environ.get('PORT', 5000))
-    debug = app.config.get('DEBUG', True)
+    """Direct run for testing (não usar em produção)"""
+    from sendcraft import create_app
     
-    print(f"""
-    ╔══════════════════════════════════════════╗
-    ║         SendCraft Email Manager          ║
-    ║            Version 0.1.0                 ║
-    ╠══════════════════════════════════════════╣
-    ║  Running in {app.config.get('ENV', 'development').upper():^28}║
-    ║  Debug Mode: {str(debug):^28}║
-    ║  Port: {port:^34}║
-    ╚══════════════════════════════════════════╝
-    """)
+    os.environ['FLASK_ENV'] = 'production'
+    app = create_app('production')
     
-    # Executar servidor de desenvolvimento
-    app.run(
-        host='0.0.0.0',
-        port=port,
-        debug=debug
-    )
+    print("🚀 SendCraft Production Mode")
+    print("🌐 Running on https://email.artnshine.pt")
+    
+    # Run on all interfaces for cPanel
+    app.run(host='0.0.0.0', port=5000, debug=False)

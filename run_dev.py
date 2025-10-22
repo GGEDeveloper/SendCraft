@@ -3,6 +3,12 @@
 import os
 import sys
 
+# Compatibility check - only run if not in production
+if os.environ.get('FLASK_ENV') == 'production':
+    print("❌ run_dev.py não deve ser usado em produção!")
+    print("✅ Use app.py ou passenger_wsgi.py para produção")
+    sys.exit(1)
+
 def main():
     print("🔧 SendCraft Development Mode (Remote MySQL → dominios.pt)")
     print("=" * 60)
