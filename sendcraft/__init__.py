@@ -6,7 +6,7 @@ import sys
 from flask import Flask
 from typing import Optional
 
-from .extensions import db, mail, cors
+from .extensions import db, mail, cors, migrate
 from .utils.logging import setup_logging
 
 
@@ -95,6 +95,7 @@ def init_extensions(app: Flask) -> None:
     """Inicializa extensões Flask"""
     db.init_app(app)
     mail.init_app(app)
+    migrate.init_app(app, db)
     cors.init_app(app, resources={
         r"/api/*": {
             "origins": "*",

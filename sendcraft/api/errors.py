@@ -9,6 +9,33 @@ from ..utils.logging import get_logger
 logger = get_logger(__name__)
 
 
+# Custom Exception Classes
+class APIError(Exception):
+    """Base exception for API errors."""
+    status_code = 500
+    
+    def __init__(self, message: str, status_code: int = None):
+        super().__init__()
+        self.message = message
+        if status_code is not None:
+            self.status_code = status_code
+
+
+class BadRequest(APIError):
+    """Exception for Bad Request (400)."""
+    status_code = 400
+
+
+class NotFound(APIError):
+    """Exception for Not Found (404)."""
+    status_code = 404
+
+
+class ServerError(APIError):
+    """Exception for Internal Server Error (500)."""
+    status_code = 500
+
+
 def register_error_handlers(app):
     """
     Registra error handlers na aplicação.
