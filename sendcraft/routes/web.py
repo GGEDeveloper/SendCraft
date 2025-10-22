@@ -962,7 +962,7 @@ def emails_inbox():
     
     # Get the first active email account (encomendas@alitools.pt)
     account = EmailAccount.query.filter_by(
-        email_address='encomendas@alitools.pt',
+        email_address='geral@alitools.pt',
         is_active=True
     ).first()
     
