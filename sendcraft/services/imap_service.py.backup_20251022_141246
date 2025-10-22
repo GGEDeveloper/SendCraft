@@ -36,7 +36,7 @@ class IMAPService:
     
     def connect(self, config: Dict[str, Any] = None) -> bool:
         """
-        Conecta ao servidor IMAP usando configuração cPanel VBS (60s timeout + socket options).
+        Conecta ao servidor IMAP via SSL.
         
         Args:
             config: Configuração IMAP (opcional, usa account se não fornecido)
@@ -44,8 +44,6 @@ class IMAPService:
         Returns:
             True se conectou com sucesso
         """
-        import socket
-        
         try:
             # Usar config fornecido ou do account
             if not config and self.account:
@@ -64,46 +62,28 @@ class IMAPService:
             use_ssl = config.get('use_ssl', True)
             use_tls = config.get('use_tls', False)
             
-            logger.info(f"🔗 Connecting to {server}:{port} as {username} (cPanel VBS mode)")
+            logger.info(f"Connecting to IMAP server {server}:{port} as {username}")
             
-            # PRIMARY: SSL/TLS connection (993 from cPanel VBS)
+            # Criar conexão SSL
             if use_ssl:
-                try:
-                    # Criar contexto SSL seguro (cPanel compatible)
-                    ssl_context = ssl.create_default_context()
-                    ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
-                    ssl_context.check_hostname = True
-                    ssl_context.verify_mode = ssl.CERT_REQUIRED
-                    
-                    # Create SSL connection
-                    self.connection = imaplib.IMAP4_SSL(server, port, ssl_context=ssl_context)
-                    
-                    # CRITICAL: Apply cPanel timeout (60 seconds from VBS: 0000003c hex)
-                    self.connection.sock.settimeout(60)
-                    
-                    # CRITICAL: Apply cPanel socket options (Windows Live Mail settings)
-                    self.connection.sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-                    if hasattr(socket, 'TCP_NODELAY'):
-                        self.connection.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-                    
-                    # Authenticate
-                    result = self.connection.login(username, password)
-                    
-                    if result == 'OK':
-                        self.is_connected = True
-                        logger.info("✅ IMAP connected with cPanel VBS settings (SSL 60s timeout)")
-                        return True
-                        
-                except (socket.timeout, ssl.SSLError, ConnectionResetError) as e:
-                    logger.warning(f"SSL connection failed: {e}")
-                    logger.info("🔄 Trying cPanel STARTTLS fallback (port 143)...")
-                    
-                    # FALLBACK: STARTTLS configuration (from non-SSL VBS file)
-                    return self._connect_starttls_cpanel(server, username, password)
-                    
+                # Criar contexto SSL seguro
+                ssl_context = ssl.create_default_context()
+                # Para desenvolvimento/teste, pode desabilitar verificação
+                # ssl_context.check_hostname = False
+                # ssl_context.verify_mode = ssl.CERT_NONE
+                
+                self.connection = imaplib.IMAP4_SSL(server, port, ssl_context=ssl_context)
             else:
-                # Non-SSL connection with STARTTLS
-                return self._connect_starttls_cpanel(server, username, password)
+                self.connection = imaplib.IMAP4(server, port)
+                if use_tls:
+                    self.connection.starttls(ssl_context=ssl.create_default_context())
+            
+            # Fazer login
+            self.connection.login(username, password)
+            self.is_connected = True
+            
+            logger.info(f"Successfully connected to IMAP server for {username}")
+            return True
             
         except imaplib.IMAP4.error as e:
             logger.error(f"IMAP error during connection: {e}")
@@ -113,48 +93,6 @@ class IMAPService:
             logger.error(f"Failed to connect to IMAP server: {e}")
             self.is_connected = False
             return False
-    
-    def _connect_starttls_cpanel(self, server: str, username: str, password: str) -> bool:
-        """
-        Fallback to STARTTLS using cPanel non-SSL VBS settings (port 143).
-        
-        Args:
-            server: IMAP server hostname
-            username: Username for authentication
-            password: Password for authentication
-            
-        Returns:
-            True if connection successful
-        """
-        import socket
-        
-        try:
-            logger.info("📡 Connecting via STARTTLS (port 143)...")
-            
-            # Connect to port 143 (non-SSL from VBS)
-            self.connection = imaplib.IMAP4(server, 143)
-            
-            # Apply same 60s timeout as SSL version
-            self.connection.sock.settimeout(60)
-            self.connection.sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-            if hasattr(socket, 'TCP_NODELAY'):
-                self.connection.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-            
-            # Start TLS
-            self.connection.starttls()
-            
-            # Login
-            result = self.connection.login(username, password)
-            
-            if result == 'OK':
-                self.is_connected = True
-                logger.info("✅ IMAP connected via STARTTLS (143) with cPanel settings")
-                return True
-                
-        except Exception as e:
-            logger.error(f"STARTTLS fallback failed: {e}")
-            
-        return False
     
     def disconnect(self) -> None:
         """Desconecta do servidor IMAP."""
