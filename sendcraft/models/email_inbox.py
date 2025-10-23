@@ -461,6 +461,7 @@ class EmailInbox(BaseModel, TimestampMixin):
             'from_name': self.from_name,
             'subject': self.subject,
             'received_at': self.received_at.isoformat() if self.received_at else None,
+            'date': self.received_at.isoformat() if self.received_at else None,  # Explicit date field for frontend
             'is_read': self.is_read,
             'is_flagged': self.is_flagged,
             'has_attachments': self.has_attachments,
