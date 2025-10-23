@@ -100,6 +100,10 @@ class EmailClient {
         document.getElementById('flagBtn')?.addEventListener('click', () => this.toggleEmailFlag());
         document.getElementById('markReadUnreadBtn')?.addEventListener('click', () => this.toggleEmailReadStatus());
         document.getElementById('deleteBtn')?.addEventListener('click', () => this.deleteCurrentEmail());
+        document.getElementById('viewOriginalBtn')?.addEventListener('click', () => this.viewOriginalEmail());
+        document.getElementById('showHeadersBtn')?.addEventListener('click', () => this.toggleHeaders());
+        document.getElementById('printEmailBtn')?.addEventListener('click', () => this.printEmail());
+        document.getElementById('remoteImagesBtn')?.addEventListener('click', () => this.toggleRemoteImages());
 
         // Mobile sidebar toggle
         document.getElementById('sidebarToggle')?.addEventListener('click', () => this.toggleSidebar());
@@ -305,6 +309,16 @@ class EmailClient {
             if (email.body_html) {
                 // Enhanced HTML rendering with proper sanitization
                 bodyEl.innerHTML = this.sanitizeAndRenderHtml(email.body_html);
+                
+                // Block remote images by default
+                setTimeout(() => {
+                    const images = bodyEl.querySelectorAll('img[src^="http"]');
+                    images.forEach(img => {
+                        img.dataset.originalSrc = img.src;
+                        img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext x="50" y="50" text-anchor="middle" fill="%23999"%3EImagem bloqueada%3C/text%3E%3C/svg%3E';
+                        img.dataset.blocked = 'true';
+                    });
+                }, 100);
             } else if (email.body_text) {
                 // Convert text to HTML with proper formatting
                 bodyEl.innerHTML = this.formatPlainText(email.body_text);
@@ -926,6 +940,107 @@ class EmailClient {
     forwardEmail() {
         // TODO: Implement forward functionality
         this.showToast('Info', 'Funcionalidade de reencaminhamento em desenvolvimento', 'info');
+    }
+
+    viewOriginalEmail() {
+        if (!this.currentEmail) return;
+        
+        const url = `/api/v1/emails/inbox/${this.accountId}/${this.currentEmail.id}/raw`;
+        window.open(url, '_blank');
+    }
+
+    toggleHeaders() {
+        const headersDiv = document.getElementById('emailHeaders');
+        if (!headersDiv) return;
+        
+        const isVisible = headersDiv.style.display !== 'none';
+        headersDiv.style.display = isVisible ? 'none' : 'block';
+        
+        const btn = document.getElementById('showHeadersBtn');
+        if (btn) {
+            btn.textContent = isVisible ? 'Mostrar Cabeçalhos' : 'Ocultar Cabeçalhos';
+        }
+    }
+
+    printEmail() {
+        if (!this.currentEmail) return;
+        
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>${this.escapeHtml(this.currentEmail.subject || 'Email')}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 20px; }
+                        .email-header { border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
+                        .email-meta { margin-bottom: 15px; }
+                        .email-body { line-height: 1.6; }
+                    </style>
+                </head>
+                <body>
+                    <div class="email-header">
+                        <h2>${this.escapeHtml(this.currentEmail.subject || 'Sem assunto')}</h2>
+                    </div>
+                    <div class="email-meta">
+                        <p><strong>De:</strong> ${this.escapeHtml(this.currentEmail.from_name || this.currentEmail.from_address)}</p>
+                        <p><strong>Para:</strong> ${this.escapeHtml(this.currentEmail.to_address || '')}</p>
+                        <p><strong>Data:</strong> ${this.formatFullDate(new Date(this.currentEmail.date))}</p>
+                    </div>
+                    <div class="email-body">
+                        ${this.currentEmail.body_html ? this.sanitizeAndRenderHtml(this.currentEmail.body_html) : `<pre>${this.escapeHtml(this.currentEmail.body_text || '')}</pre>`}
+                    </div>
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+    }
+
+    toggleRemoteImages() {
+        const emailBody = document.getElementById('emailBody');
+        if (!emailBody) return;
+        
+        const images = emailBody.querySelectorAll('img[src^="http"]');
+        let someBlocked = false;
+        
+        images.forEach(img => {
+            if (img.style.display === 'none' || img.dataset.blocked === 'true') {
+                someBlocked = true;
+            }
+        });
+        
+        const shouldShow = someBlocked;
+        
+        images.forEach(img => {
+            if (shouldShow) {
+                // Show image
+                img.style.display = '';
+                img.dataset.blocked = 'false';
+                // Set actual src if it was blocked
+                if (img.dataset.originalSrc) {
+                    img.src = img.dataset.originalSrc;
+                }
+            } else {
+                // Block image
+                img.dataset.originalSrc = img.src;
+                img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext x="50" y="50" text-anchor="middle" fill="%23999"%3EImagem bloqueada%3C/text%3E%3C/svg%3E';
+                img.style.display = '';
+                img.dataset.blocked = 'true';
+            }
+        });
+        
+        const btn = document.getElementById('remoteImagesBtn');
+        if (btn) {
+            btn.textContent = shouldShow ? 'Ocultar Imagens Remotas' : 'Mostrar Imagens Remotas';
+            btn.classList.toggle('btn-outline-secondary', !shouldShow);
+            btn.classList.toggle('btn-outline-warning', shouldShow);
+        }
+        
+        this.showToast(
+            'Info', 
+            shouldShow ? 'Imagens remotas ativadas' : 'Imagens remotas bloqueadas', 
+            'info'
+        );
     }
 
     // Utility functions
