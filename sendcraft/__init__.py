@@ -115,9 +115,13 @@ def register_blueprints(app: Flask) -> None:
     """Registra blueprints da aplicação"""
     from .api.v1 import api_v1_bp
     from .routes.web import web_bp
+    from .routes.external_api import external_api_bp
+    from .routes.api_docs import docs_bp
     
     app.register_blueprint(api_v1_bp, url_prefix='/api/v1')
     app.register_blueprint(web_bp)
+    app.register_blueprint(external_api_bp)  # External API for AliTools integration
+    app.register_blueprint(docs_bp)  # API documentation
     
     # Error handlers
     from .api.errors import register_error_handlers
