@@ -285,26 +285,29 @@ class EmailClient {
         if (senderNameEl) senderNameEl.textContent = email.from_name || email.from_address;
         if (senderEmailEl) senderEmailEl.textContent = email.from_address;
 
-        // Update date
+        // Update date with relative format and full date on hover
         const dateEl = document.getElementById('emailDate');
         if (dateEl) {
             const emailDate = new Date(email.date);
-            dateEl.textContent = this.formatFullDate(emailDate);
+            const relativeDate = this.formatRelativeDate(emailDate);
+            const fullDate = this.formatFullDate(emailDate);
+            dateEl.textContent = relativeDate;
+            dateEl.title = fullDate; // Show full date on hover
         }
 
         // Update recipient
         const toEl = document.getElementById('emailTo');
         if (toEl) toEl.textContent = email.to_address || document.getElementById('accountEmail').value;
 
-        // Update body
+        // Update body with enhanced HTML rendering
         const bodyEl = document.getElementById('emailBody');
         if (bodyEl) {
             if (email.body_html) {
-                // Sanitize and display HTML
-                bodyEl.innerHTML = this.sanitizeHtml(email.body_html);
+                // Enhanced HTML rendering with proper sanitization
+                bodyEl.innerHTML = this.sanitizeAndRenderHtml(email.body_html);
             } else if (email.body_text) {
-                // Convert text to HTML
-                bodyEl.innerHTML = `<pre style="white-space: pre-wrap; font-family: inherit;">${this.escapeHtml(email.body_text)}</pre>`;
+                // Convert text to HTML with proper formatting
+                bodyEl.innerHTML = this.formatPlainText(email.body_text);
             } else {
                 bodyEl.innerHTML = '<p class="text-muted">Sem conteúdo disponível</p>';
             }
@@ -359,10 +362,20 @@ class EmailClient {
         attachments.forEach(attachment => {
             const div = document.createElement('div');
             div.className = 'attachment-item';
+            
+            // Get appropriate icon based on file type
+            const icon = this.getFileIcon(attachment.filename, attachment.content_type);
+            
+            // Create download link (we'll need to implement the API endpoint)
+            const downloadUrl = `/api/v1/emails/inbox/${this.accountId}/attachments/${attachment.content_id || attachment.filename}`;
+            
             div.innerHTML = `
-                <i class="bi bi-file-earmark"></i>
-                <span>${attachment.filename}</span>
-                <small class="text-muted ms-2">(${this.formatFileSize(attachment.size)})</small>
+                <i class="${icon}"></i>
+                <span class="attachment-name">${this.escapeHtml(attachment.filename)}</span>
+                <small class="text-muted ms-2">${this.formatFileSize(attachment.size || 0)}</small>
+                <a href="${downloadUrl}" class="btn btn-sm btn-outline-primary ms-auto" download>
+                    <i class="bi bi-download"></i> Transferir
+                </a>
             `;
             list.appendChild(div);
         });
@@ -933,6 +946,36 @@ class EmailClient {
         }
     }
 
+    formatRelativeDate(date) {
+        const now = new Date();
+        const diff = now - date;
+        const seconds = Math.floor(diff / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
+
+        if (seconds < 60) {
+            return 'há alguns segundos';
+        } else if (minutes < 60) {
+            return `há ${minutes} min${minutes !== 1 ? 'utos' : 'uto'}`;
+        } else if (hours < 24) {
+            return `há ${hours} hora${hours !== 1 ? 's' : ''}`;
+        } else if (days === 1) {
+            return 'ontem';
+        } else if (days < 7) {
+            return `há ${days} dia${days !== 1 ? 's' : ''}`;
+        } else if (days < 30) {
+            const weeks = Math.floor(days / 7);
+            return `há ${weeks} semana${weeks !== 1 ? 's' : ''}`;
+        } else if (days < 365) {
+            const months = Math.floor(days / 30);
+            return `há ${months} mês${months !== 1 ? 'es' : ''}`;
+        } else {
+            const years = Math.floor(days / 365);
+            return `há ${years} ano${years !== 1 ? 's' : ''}`;
+        }
+    }
+
     formatFullDate(date) {
         return date.toLocaleDateString('pt-PT', {
             weekday: 'long',
@@ -979,6 +1022,115 @@ class EmailClient {
         });
 
         return div.innerHTML;
+    }
+
+    sanitizeAndRenderHtml(html) {
+        // Enhanced HTML sanitization with better formatting
+        const div = document.createElement('div');
+        div.innerHTML = html;
+        
+        // Remove dangerous elements
+        div.querySelectorAll('script, link, meta, base, object, embed, iframe, form').forEach(el => el.remove());
+        
+        // Remove inline event handlers
+        div.querySelectorAll('*').forEach(el => {
+            Array.from(el.attributes).forEach(attr => {
+                if (attr.name.startsWith('on') || attr.name.startsWith('javascript:')) {
+                    el.removeAttribute(attr.name);
+                }
+            });
+        });
+        
+        // Preserve email styling but add our own container
+        const container = document.createElement('div');
+        container.className = 'email-html-content';
+        container.innerHTML = div.innerHTML;
+        
+        return container.outerHTML;
+    }
+
+    formatPlainText(text) {
+        // Convert plain text to formatted HTML
+        const lines = text.split('\n');
+        const formatted = lines.map(line => {
+            // Detect email signatures
+            if (line.match(/^(--|__|\|)/) || line.match(/^Atenciosamente|^Best regards|^Cordiais|^Sinceramente/i)) {
+                return `<div class="email-signature">${this.escapeHtml(line)}</div>`;
+            }
+            
+            // Detect quoted/reply text
+            if (line.match(/^>/)) {
+                return `<div class="email-quote">${this.escapeHtml(line)}</div>`;
+            }
+            
+            // Empty lines
+            if (line.trim() === '') {
+                return '<br>';
+            }
+            
+            // Regular paragraphs
+            return `<p>${this.escapeHtml(line)}</p>`;
+        }).join('');
+        
+        return `<div class="email-text-content">${formatted}</div>`;
+    }
+
+    getFileIcon(filename, contentType) {
+        // Get appropriate Bootstrap icon based on file type
+        const ext = filename.split('.').pop().toLowerCase();
+        
+        // Image files
+        if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp'].includes(ext)) {
+            return 'bi bi-file-image';
+        }
+        
+        // PDF files
+        if (ext === 'pdf') {
+            return 'bi bi-file-pdf';
+        }
+        
+        // Word documents
+        if (['doc', 'docx'].includes(ext)) {
+            return 'bi bi-file-word';
+        }
+        
+        // Excel spreadsheets
+        if (['xls', 'xlsx'].includes(ext)) {
+            return 'bi bi-file-excel';
+        }
+        
+        // PowerPoint
+        if (['ppt', 'pptx'].includes(ext)) {
+            return 'bi bi-file-ppt';
+        }
+        
+        // Archive files
+        if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) {
+            return 'bi bi-file-zip';
+        }
+        
+        // Audio files
+        if (['mp3', 'wav', 'ogg', 'flac'].includes(ext)) {
+            return 'bi bi-file-music';
+        }
+        
+        // Video files
+        if (['mp4', 'avi', 'mov', 'wmv'].includes(ext)) {
+            return 'bi bi-file-play';
+        }
+        
+        // Code files
+        if (['js', 'ts', 'py', 'java', 'html', 'css', 'xml', 'json'].includes(ext)) {
+            return 'bi bi-file-code';
+        }
+        
+        // Text files
+        if (['txt', 'md', 'log'].includes(ext)) {
+            return 'bi bi-file-text';
+        }
+        
+        // Default
+        return 'bi bi-file-earmark';
     }
 
     showToast(title, message, type = 'info') {
