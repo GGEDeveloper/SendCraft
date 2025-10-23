@@ -5,6 +5,7 @@ from typing import Optional, Callable, Any, Tuple
 import logging
 
 from ..utils.logging import get_logger
+from ..models import EmailAccount
 
 logger = get_logger(__name__)
 
@@ -25,7 +26,7 @@ class AuthService:
     @staticmethod
     def validate_api_key(api_key: str) -> Tuple[bool, Optional[str]]:
         """
-        Valida API key.
+        Valida API key (de config file).
         
         Args:
             api_key: Chave da API
@@ -45,6 +46,31 @@ class AuthService:
                 return True, key_name
         
         logger.debug(f"Invalid API key attempted: {api_key[:10]}...")
+        return False, None
+    
+    @staticmethod
+    def validate_account_api_key(api_key: str) -> Tuple[bool, Optional[EmailAccount]]:
+        """
+        Valida API key de uma conta específica.
+        
+        Args:
+            api_key: Chave da API em formato Bearer token
+            
+        Returns:
+            Tuple (is_valid, account_instance)
+        """
+        if not api_key:
+            return False, None
+        
+        # Buscar todas as contas com API enabled
+        accounts = EmailAccount.query.filter_by(api_enabled=True).all()
+        
+        for account in accounts:
+            if account.verify_api_key(api_key):
+                logger.info(f"API key validated for account {account.email_address}")
+                return True, account
+        
+        logger.warning(f"Invalid account API key attempted: {api_key[:15]}...")
         return False, None
     
     @staticmethod
@@ -70,7 +96,7 @@ class AuthService:
 
 def require_api_key(f: Callable) -> Callable:
     """
-    Decorator para exigir autenticação por API key.
+    Decorator para exigir autenticação por API key (de config file).
     
     Usage:
         @require_api_key
@@ -103,6 +129,46 @@ def require_api_key(f: Callable) -> Callable:
         g.authenticated = True
         
         logger.info(f"API access granted to {key_name} from {request.remote_addr}")
+        return f(*args, **kwargs)
+    
+    return decorated_function
+
+
+def require_account_api_key(f: Callable) -> Callable:
+    """
+    Decorator para exigir autenticação por API key de conta.
+    
+    Usage:
+        @require_account_api_key
+        def protected_route():
+            return jsonify({"message": "Access granted"})
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs) -> Any:
+        api_key = AuthService.extract_api_key_from_request()
+        
+        if not api_key:
+            logger.warning(f"Account API access attempt without key from {request.remote_addr}")
+            return jsonify({
+                'error': 'API key required',
+                'message': 'Include API key in Authorization header: Bearer <key>'
+            }), 401
+        
+        is_valid, account = AuthService.validate_account_api_key(api_key)
+        
+        if not is_valid or not account:
+            logger.warning(f"Invalid account API key attempt from {request.remote_addr}: {api_key[:15]}...")
+            return jsonify({
+                'error': 'Invalid API key',
+                'message': 'The provided API key is not valid or account does not have API access enabled'
+            }), 401
+        
+        # Store account info for use in route
+        g.account = account
+        g.api_key = api_key
+        g.authenticated = True
+        
+        logger.info(f"Account API access granted to {account.email_address} from {request.remote_addr}")
         return f(*args, **kwargs)
     
     return decorated_function

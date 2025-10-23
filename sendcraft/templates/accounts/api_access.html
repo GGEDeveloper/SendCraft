@@ -1,0 +1,296 @@
+{% extends "base.html" %}
+
+{% block title %}Gestão de API - {{ account.email_address }} - SendCraft{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item">
+            <a href="{{ url_for('web.dashboard') }}">
+                <i class="bi bi-house-door me-1"></i>Dashboard
+            </a>
+        </li>
+        <li class="breadcrumb-item">
+            <a href="{{ url_for('web.accounts_list') }}">
+                <i class="bi bi-envelope me-1"></i>Contas
+            </a>
+        </li>
+        <li class="breadcrumb-item">
+            <a href="{{ url_for('web.accounts_edit', account_id=account.id) }}">
+                {{ account.email_address }}
+            </a>
+        </li>
+        <li class="breadcrumb-item active">API Access</li>
+    </ol>
+</nav>
+
+<!-- Header -->
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="h2">
+            <i class="bi bi-key me-2 text-warning"></i>
+            Gestão de API Access
+        </h1>
+        <p class="text-muted">
+            Conta: <strong>{{ account.email_address }}</strong>
+        </p>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Main Content -->
+    <div class="col-lg-8">
+        <!-- Status Card -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-toggle-{{ 'on' if api_data.is_enabled else 'off' }} me-2"></i>
+                    Status do Acesso API
+                </h5>
+                <form method="POST" action="{{ url_for('web.accounts_api_enable', account_id=account.id) }}" style="display: inline;">
+                    <button type="submit" class="btn btn-sm btn-{{ 'success' if not api_data.is_enabled else 'danger' }}">
+                        <i class="bi bi-power me-1"></i>
+                        {{ 'Ativar' if not api_data.is_enabled else 'Desativar' }} API
+                    </button>
+                </form>
+            </div>
+            <div class="card-body">
+                {% if api_data.is_enabled %}
+                <div class="alert alert-success mb-0">
+                    <i class="bi bi-check-circle me-2"></i>
+                    API Access está <strong>ATIVO</strong> para esta conta
+                </div>
+                {% else %}
+                <div class="alert alert-secondary mb-0">
+                    <i class="bi bi-x-circle me-2"></i>
+                    API Access está <strong>INATIVO</strong> para esta conta
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- API Key Card -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-key-fill me-2"></i>
+                    API Key
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if api_data.has_key %}
+                <!-- Exibir chave gerada (apenas uma vez) -->
+                {% if new_api_key %}
+                <div class="alert alert-warning" role="alert">
+                    <h6 class="alert-heading">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Guarde Esta Chave Agora!
+                    </h6>
+                    <p class="mb-2">Esta chave não será mostrada novamente. Copie e guarde em local seguro.</p>
+                    <div class="input-group mb-3">
+                        <input type="text" 
+                               class="form-control font-monospace" 
+                               id="apiKeyDisplay" 
+                               value="{{ new_api_key }}" 
+                               readonly>
+                        <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('apiKeyDisplay')">
+                            <i class="bi bi-clipboard me-1"></i>Copiar
+                        </button>
+                    </div>
+                </div>
+                {% else %}
+                <!-- Exibir chave mascarada -->
+                <div class="mb-3">
+                    <label class="form-label">API Key Atual</label>
+                    <div class="input-group">
+                        <input type="text" 
+                               class="form-control font-monospace" 
+                               value="{{ api_data.key_display }}" 
+                               readonly>
+                        <span class="input-group-text">
+                            <i class="bi bi-eye-slash text-muted"></i>
+                        </span>
+                    </div>
+                    <div class="form-text">
+                        Chave mascarada por segurança. Para gerar nova chave, use o botão abaixo.
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Informações -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Criada em:</strong><br>
+                        <small class="text-muted">
+                            {{ api_data.created_at.strftime('%d/%m/%Y %H:%M') if api_data.created_at else 'N/A' }}
+                        </small>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Último uso:</strong><br>
+                        <small class="text-muted">
+                            {{ api_data.last_used_at.strftime('%d/%m/%Y %H:%M') if api_data.last_used_at else 'Nunca' }}
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Ações -->
+                <div class="d-flex gap-2">
+                    <form method="POST" action="{{ url_for('web.accounts_api_generate', account_id=account.id) }}" style="display: inline;">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-arrow-clockwise me-1"></i>
+                            {{ 'Rotacionar' if api_data.has_key else 'Gerar' }} Chave
+                        </button>
+                    </form>
+                    <form method="POST" action="{{ url_for('web.accounts_api_revoke', account_id=account.id) }}" style="display: inline;">
+                        <button type="submit" class="btn btn-outline-danger" onclick="return confirm('Tem certeza que deseja revogar esta chave? Esta ação não pode ser desfeita.');">
+                            <i class="bi bi-trash me-1"></i>
+                            Revogar Chave
+                        </button>
+                    </form>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Nenhuma API key gerada ainda. Clique em "Gerar Chave" para criar uma.
+                </div>
+                <form method="POST" action="{{ url_for('web.accounts_api_generate', account_id=account.id) }}" style="display: inline;">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-key me-1"></i>
+                        Gerar Primeira Chave
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Instruções de Uso -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-book me-2"></i>
+                    Como Usar
+                </h5>
+            </div>
+            <div class="card-body">
+                <h6>1. Adicionar Header de Autorização</h6>
+                <pre class="bg-light p-3 rounded"><code>Authorization: Bearer SC_sua_chave_aqui</code></pre>
+
+                <h6 class="mt-3">2. Exemplo com cURL</h6>
+                <pre class="bg-light p-3 rounded"><code>curl -X POST http://localhost:5000/api/v1/send/direct \
+  -H "Authorization: Bearer SC_sua_chave_aqui" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "destino@exemplo.com",
+    "subject": "Teste",
+    "body": "Mensagem de teste"
+  }'</code></pre>
+
+                <h6 class="mt-3">3. Rate Limiting</h6>
+                <p class="text-muted mb-0">
+                    Cada conta tem limites de envio: <strong>{{ account.daily_limit }} emails/dia</strong> e <strong>{{ account.monthly_limit }} emails/mês</strong>.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Resumo -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Resumo
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <strong>Conta:</strong><br>
+                    <small class="text-muted">{{ account.email_address }}</small>
+                </div>
+                <div class="mb-2">
+                    <strong>Status API:</strong><br>
+                    {% if api_data.is_enabled %}
+                    <span class="badge bg-success">Ativo</span>
+                    {% else %}
+                    <span class="badge bg-secondary">Inativo</span>
+                    {% endif %}
+                </div>
+                <div class="mb-2">
+                    <strong>API Key:</strong><br>
+                    {% if api_data.has_key %}
+                    <span class="badge bg-success">Configurada</span>
+                    {% else %}
+                    <span class="badge bg-warning">Não configurada</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Segurança -->
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <h6 class="mb-0">
+                    <i class="bi bi-shield-exclamation me-2"></i>
+                    Segurança
+                </h6>
+            </div>
+            <div class="card-body">
+                <ul class="small mb-0">
+                    <li>Nunca compartilhe sua API key</li>
+                    <li>Chaves são armazenadas como hash SHA-256</li>
+                    <li>Rotacione keys regularmente</li>
+                    <li>Revogue keys comprometidas imediatamente</li>
+                    <li>Use HTTPS em produção</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copyToClipboard(elementId) {
+    const element = document.getElementById(elementId);
+    element.select();
+    element.setSelectionRange(0, 99999); // Para mobile
+    
+    navigator.clipboard.writeText(element.value).then(function() {
+        showToast('API key copiada para clipboard!', 'success');
+    }, function(err) {
+        console.error('Erro ao copiar:', err);
+        showToast('Erro ao copiar', 'danger');
+    });
+}
+
+function showToast(message, type = 'success') {
+    const toastHtml = `
+        <div class="toast align-items-center text-bg-${type} border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    
+    const container = document.getElementById('toast-container');
+    container.insertAdjacentHTML('beforeend', toastHtml);
+    
+    const toast = new bootstrap.Toast(container.lastElementChild);
+    toast.show();
+}
+
+// Auto-hide alert after 5 seconds
+setTimeout(function() {
+    const alert = document.querySelector('.alert-warning');
+    if (alert) {
+        alert.style.transition = 'opacity 0.5s';
+        alert.style.opacity = '0';
+        setTimeout(() => alert.remove(), 500);
+    }
+}, 10000);
+</script>
+{% endblock %}
+

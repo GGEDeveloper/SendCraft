@@ -2,7 +2,7 @@
 SendCraft Web Interface Routes
 Sistema completo de rotas web para gestão de emails
 """
-from flask import Blueprint, render_template, request, flash, redirect, url_for, jsonify, abort
+from flask import Blueprint, render_template, request, flash, redirect, url_for, jsonify, abort, current_app
 from datetime import datetime, timedelta
 from sqlalchemy import func, and_
 
@@ -142,6 +142,7 @@ def domains_new():
     """Criar novo domínio"""
     if request.method == 'POST':
         try:
+            import re
             name = request.form.get('name', '').strip()
             description = request.form.get('description', '').strip()
             is_active = request.form.get('is_active') == 'on'
@@ -149,6 +150,11 @@ def domains_new():
             # Validações
             if not name:
                 raise ValueError('Nome do domínio é obrigatório')
+            
+            # Validar formato do domínio (regex)
+            domain_pattern = r'^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]?\.[a-zA-Z]{2,}$'
+            if not re.match(domain_pattern, name):
+                raise ValueError('Nome de domínio inválido. Use formato: exemplo.com')
             
             # Verificar se já existe
             if Domain.query.filter_by(name=name).first():
@@ -193,13 +199,37 @@ def domains_edit(domain_id):
     return render_template('domains/form.html', domain=domain)
 
 
+@web_bp.route('/domains/<int:domain_id>/toggle', methods=['POST'])
+def domains_toggle(domain_id):
+    """Ativar/Desativar domínio"""
+    try:
+        domain = Domain.query.get_or_404(domain_id)
+        domain.is_active = not domain.is_active
+        domain.save()
+        
+        status = 'ativado' if domain.is_active else 'desativado'
+        flash(f'Domínio {domain.name} {status} com sucesso!', 'success')
+        return redirect(url_for('web.domains_list'))
+        
+    except Exception as e:
+        flash(f'Erro ao alterar status do domínio: {str(e)}', 'error')
+        db.session.rollback()
+        return redirect(url_for('web.domains_list'))
+
+
 @web_bp.route('/domains/<int:domain_id>/delete', methods=['POST'])
 def domains_delete(domain_id):
     """Eliminar domínio"""
     try:
         domain = Domain.query.get_or_404(domain_id)
         
-        # Verificar dependências
+        # Verificar se tem contas ativas
+        active_accounts = domain.accounts.filter_by(is_active=True).count()
+        if active_accounts > 0:
+            flash(f'Não é possível eliminar domínio com {active_accounts} conta(s) ativa(s) associada(s)', 'warning')
+            return redirect(url_for('web.domains_list'))
+        
+        # Verificar dependências gerais
         if domain.accounts.count() > 0 or domain.templates.count() > 0:
             flash('Não é possível eliminar domínio com contas ou templates associados', 'warning')
             return redirect(url_for('web.domains_list'))
@@ -301,21 +331,30 @@ def accounts_new():
             if not account_data['smtp_password']:
                 raise ValueError('Password SMTP é obrigatória')
             
-            # Criar conta
-            account = EmailAccount.create(
+            # Criar conta com password encriptada
+            account = EmailAccount(
                 domain_id=account_data['domain_id'],
                 local_part=account_data['local_part'],
                 display_name=account_data['display_name'],
                 smtp_server=account_data['smtp_server'],
                 smtp_port=account_data['smtp_port'],
                 smtp_username=account_data['smtp_username'],
-                smtp_password=account_data['smtp_password'],
                 use_tls=account_data['use_tls'],
                 use_ssl=account_data['use_ssl'],
                 daily_limit=account_data['daily_limit'],
                 monthly_limit=account_data['monthly_limit'],
-                is_active=account_data['is_active']
+                is_active=account_data['is_active'],
+                # IMAP Configuration
+                imap_server=request.form.get('imap_server', '').strip() or 'mail.alitools.pt',
+                imap_port=request.form.get('imap_port', 993, type=int),
+                imap_use_ssl=request.form.get('imap_use_ssl') == 'on',
+                imap_use_tls=request.form.get('imap_use_tls') == 'on'
             )
+            
+            # Encriptar password antes de salvar
+            encryption_key = current_app.config.get('SECRET_KEY', '')
+            account.set_password(account_data['smtp_password'], encryption_key)
+            account.save()
             
             email_address = f"{account.local_part}@{account.domain.name}"
             flash(f'Conta {email_address} criada com sucesso!', 'success')
@@ -354,10 +393,17 @@ def accounts_edit(account_id):
             account.monthly_limit = request.form.get('monthly_limit', type=int)
             account.is_active = request.form.get('is_active') == 'on'
             
+            # Atualizar configurações IMAP
+            account.imap_server = request.form.get('imap_server', '').strip() or 'mail.alitools.pt'
+            account.imap_port = request.form.get('imap_port', 993, type=int)
+            account.imap_use_ssl = request.form.get('imap_use_ssl') == 'on'
+            account.imap_use_tls = request.form.get('imap_use_tls') == 'on'
+            
             # Atualizar password apenas se fornecida
             new_password = request.form.get('smtp_password', '').strip()
             if new_password:
-                account.set_smtp_password(new_password)
+                encryption_key = current_app.config.get('SECRET_KEY', '')
+                account.set_password(new_password, encryption_key)
             
             account.save()
             
@@ -379,6 +425,14 @@ def accounts_delete(account_id):
         account = EmailAccount.query.get_or_404(account_id)
         email_address = f"{account.local_part}@{account.domain.name}"
         
+        # Verificar se tem emails vinculados
+        emails_count = account.logs.count()
+        inbox_count = account.inbox_emails.count()
+        
+        if emails_count > 0 or inbox_count > 0:
+            flash(f'Não é possível eliminar conta com {emails_count} log(s) e {inbox_count} email(s) na caixa de entrada', 'warning')
+            return redirect(url_for('web.accounts_list'))
+        
         account.delete()
         
         flash(f'Conta {email_address} eliminada com sucesso!', 'success')
@@ -388,6 +442,116 @@ def accounts_delete(account_id):
         flash(f'Erro ao eliminar conta: {str(e)}', 'error')
         db.session.rollback()
         return redirect(url_for('web.accounts_list'))
+
+
+# ===== API ACCESS MANAGEMENT =====
+@web_bp.route('/accounts/<int:account_id>/api', methods=['GET'])
+def accounts_api_access(account_id):
+    """Gestão de acesso API para uma conta"""
+    try:
+        account = EmailAccount.query.get_or_404(account_id)
+        
+        # Preparar dados da API
+        api_data = {
+            'is_enabled': account.api_enabled,
+            'has_key': bool(account.api_key_hash),
+            'key_display': account.get_api_key_display(),
+            'created_at': account.api_created_at,
+            'last_used_at': account.api_last_used_at
+        }
+        
+        return render_template('accounts/api_access.html', 
+                             account=account, 
+                             api_data=api_data)
+    except Exception as e:
+        logger.error(f"Error loading API access: {e}")
+        flash('Erro ao carregar gestão de API', 'error')
+        return redirect(url_for('web.accounts_list'))
+
+
+@web_bp.route('/accounts/<int:account_id>/api/enable', methods=['POST'])
+def accounts_api_enable(account_id):
+    """Ativar/Desativar acesso API"""
+    try:
+        account = EmailAccount.query.get_or_404(account_id)
+        
+        # Toggle status
+        account.api_enabled = not account.api_enabled
+        
+        # Se desativando, revogar chave
+        if not account.api_enabled:
+            account.revoke_api_key()
+        
+        account.save()
+        
+        status = 'ativado' if account.api_enabled else 'desativado'
+        flash(f'Acesso API {status} com sucesso!', 'success')
+        return redirect(url_for('web.accounts_api_access', account_id=account_id))
+        
+    except Exception as e:
+        logger.error(f"Error toggling API access: {e}")
+        flash(f'Erro ao alterar acesso API: {str(e)}', 'error')
+        db.session.rollback()
+        return redirect(url_for('web.accounts_api_access', account_id=account_id))
+
+
+@web_bp.route('/accounts/<int:account_id>/api/generate', methods=['POST'])
+def accounts_api_generate(account_id):
+    """Gerar ou rotacionar API key"""
+    try:
+        account = EmailAccount.query.get_or_404(account_id)
+        
+        # Verificar se já tem chave (rotação)
+        is_rotation = bool(account.api_key_hash)
+        
+        # Gerar nova chave
+        api_key = account.generate_api_key()
+        account.save()
+        
+        # Preparar dados da API atualizados
+        api_data = {
+            'is_enabled': account.api_enabled,
+            'has_key': True,
+            'key_display': account.get_api_key_display(),
+            'created_at': account.api_created_at,
+            'last_used_at': account.api_last_used_at
+        }
+        
+        flash(f'API key {"rotacionada" if is_rotation else "gerada"} com sucesso! Guarde-a agora, não será mostrada novamente.', 'success')
+        
+        return render_template('accounts/api_access.html',
+                             account=account,
+                             api_data=api_data,
+                             new_api_key=api_key)  # Passar chave para mostrar
+        
+    except Exception as e:
+        logger.error(f"Error generating API key: {e}")
+        flash(f'Erro ao gerar API key: {str(e)}', 'error')
+        db.session.rollback()
+        return redirect(url_for('web.accounts_api_access', account_id=account_id))
+
+
+@web_bp.route('/accounts/<int:account_id>/api/revoke', methods=['POST'])
+def accounts_api_revoke(account_id):
+    """Revogar API key"""
+    try:
+        account = EmailAccount.query.get_or_404(account_id)
+        
+        if not account.api_key_hash:
+            flash('Nenhuma chave para revogar', 'warning')
+            return redirect(url_for('web.accounts_api_access', account_id=account_id))
+        
+        account.revoke_api_key()
+        account.save()
+        
+        flash('API key revogada com sucesso!', 'success')
+        return redirect(url_for('web.accounts_api_access', account_id=account_id))
+        
+    except Exception as e:
+        logger.error(f"Error revoking API key: {e}")
+        flash(f'Erro ao revogar API key: {str(e)}', 'error')
+        db.session.rollback()
+        return redirect(url_for('web.accounts_api_access', account_id=account_id))
 
 
 # ===== TEMPLATES ROUTES =====
@@ -657,6 +821,7 @@ def api_account_test_smtp(account_id):
     """Testar conexão SMTP via AJAX"""
     try:
         account = EmailAccount.query.get_or_404(account_id)
+        encryption_key = current_app.config.get('SECRET_KEY', '')
         
         # Testar conexão de forma simples
         import smtplib
@@ -673,8 +838,9 @@ def api_account_test_smtp(account_id):
                 if account.use_tls:
                     server.starttls()
             
-            # Tentar fazer login
-            server.login(account.smtp_username, account.get_smtp_password())
+            # Tentar fazer login (sem logar password em texto plano)
+            password = account.get_password(encryption_key)
+            server.login(account.smtp_username, password)
             server.quit()
             
             result['success'] = True
@@ -682,6 +848,7 @@ def api_account_test_smtp(account_id):
         except Exception as e:
             result['error'] = str(e)
             result['response_time'] = round((time.time() - start_time) * 1000, 2)
+            logger.error(f"SMTP test failed for {account.email_address}: {str(e)}")
         
         if result['success']:
             return jsonify({
@@ -716,6 +883,83 @@ def api_account_test_smtp(account_id):
             
     except Exception as e:
         logger.error(f"Error testing SMTP: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@web_bp.route('/api/accounts/<int:account_id>/test-imap', methods=['POST'])
+def api_account_test_imap(account_id):
+    """Testar conexão IMAP via AJAX com timeout de 60s"""
+    try:
+        account = EmailAccount.query.get_or_404(account_id)
+        encryption_key = current_app.config.get('SECRET_KEY', '')
+        
+        import imaplib
+        import time
+        
+        start_time = time.time()
+        result = {'success': False, 'error': None, 'response_time': 0}
+        
+        try:
+            # Configurar timeout de 60 segundos
+            timeout = 60
+            
+            if account.imap_use_ssl:
+                server = imaplib.IMAP4_SSL(account.imap_server, account.imap_port, timeout=timeout)
+            else:
+                server = imaplib.IMAP4(account.imap_server, account.imap_port, timeout=timeout)
+                if account.imap_use_tls:
+                    server.starttls()
+            
+            # Tentar fazer login (sem logar password em texto plano)
+            password = account.get_password(encryption_key)
+            server.login(account.email_address, password)
+            
+            # Testar seleção de INBOX
+            server.select('INBOX', readonly=True)
+            server.logout()
+            
+            result['success'] = True
+            result['response_time'] = round((time.time() - start_time) * 1000, 2)
+            
+        except imaplib.IMAP4.error as e:
+            result['error'] = f"Erro IMAP: {str(e)}"
+            result['response_time'] = round((time.time() - start_time) * 1000, 2)
+            logger.error(f"IMAP test failed for {account.email_address}: {str(e)}")
+        except Exception as e:
+            result['error'] = str(e)
+            result['response_time'] = round((time.time() - start_time) * 1000, 2)
+            logger.error(f"IMAP test error for {account.email_address}: {str(e)}")
+        
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'message': 'Conexão IMAP estabelecida com sucesso!',
+                'details': {
+                    'server': account.imap_server,
+                    'port': account.imap_port,
+                    'use_ssl': account.imap_use_ssl,
+                    'use_tls': account.imap_use_tls,
+                    'response_time': result.get('response_time', 'N/A'),
+                    'status': 'connected',
+                    'message': 'Conexão OK'
+                }
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.get('error', 'Falha na conexão IMAP'),
+                'details': {
+                    'server': account.imap_server,
+                    'port': account.imap_port,
+                    'use_ssl': account.imap_use_ssl,
+                    'use_tls': account.imap_use_tls,
+                    'status': 'error',
+                    'message': result.get('error', 'Connection failed')
+                }
+            })
+            
+    except Exception as e:
+        logger.error(f"Error testing IMAP: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

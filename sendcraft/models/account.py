@@ -7,7 +7,7 @@ from email_validator import validate_email, EmailNotValidError
 from datetime import datetime
 
 from .base import BaseModel, TimestampMixin
-from ..utils.crypto import AESCipher
+from ..utils.crypto import AESCipher, generate_api_key, hash_api_key, verify_api_key
 from ..utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -64,6 +64,12 @@ class EmailAccount(BaseModel, TimestampMixin):
     last_sync = Column(DateTime)
     auto_sync_enabled = Column(Boolean, default=True)
     sync_interval_minutes = Column(Integer, default=5)
+    
+    # API Access Configuration
+    api_enabled = Column(Boolean, default=False, nullable=False)
+    api_key_hash = Column(String(128))  # SHA-256 hash
+    api_created_at = Column(DateTime)
+    api_last_used_at = Column(DateTime)
     
     # Relationships
     logs = relationship('EmailLog', back_populates='account', lazy='dynamic', cascade='all, delete-orphan')
@@ -352,3 +358,71 @@ class EmailAccount(BaseModel, TimestampMixin):
             data['needs_sync'] = self.needs_sync()
         
         return data
+    
+    # ===== API KEY MANAGEMENT =====
+    
+    def generate_api_key(self) -> str:
+        """
+        Gera nova API key para esta conta.
+        
+        Returns:
+            API key em texto plano (mostrar apenas uma vez)
+        """
+        import secrets
+        
+        # Gerar chave segura no formato SC_<random>
+        api_key = generate_api_key(prefix='SC')
+        
+        # Criar hash SHA-256
+        self.api_key_hash = hash_api_key(api_key)
+        self.api_created_at = datetime.utcnow()
+        self.api_last_used_at = None
+        
+        logger.info(f"API key generated for account {self.email_address}")
+        return api_key
+    
+    def verify_api_key(self, api_key: str) -> bool:
+        """
+        Verifica se API key é válida.
+        
+        Args:
+            api_key: Chave a verificar
+            
+        Returns:
+            True se válida
+        """
+        if not self.api_enabled or not self.api_key_hash:
+            return False
+        
+        is_valid = verify_api_key(api_key, self.api_key_hash)
+        
+        if is_valid:
+            # Atualizar último uso
+            self.api_last_used_at = datetime.utcnow()
+            self.save(commit=False)  # Não commitar ainda para permitir commit em batch
+            logger.debug(f"API key verified for account {self.email_address}")
+        
+        return is_valid
+    
+    def revoke_api_key(self) -> None:
+        """
+        Revoga API key atual (inutiliza).
+        """
+        self.api_key_hash = None
+        self.api_created_at = None
+        self.api_last_used_at = None
+        logger.info(f"API key revoked for account {self.email_address}")
+    
+    def get_api_key_display(self) -> str:
+        """
+        Retorna versão mascarada da API key para display.
+        
+        Returns:
+            Chave mascarada (ex: SC_abc...xyz)
+        """
+        if not self.api_key_hash:
+            return 'Nenhuma chave'
+        
+        # Retornar apenas primeiros 4 e últimos 4 caracteres do hash
+        hash_preview = self.api_key_hash[:4] + '...' + self.api_key_hash[-4:]
+        return f'SC_{hash_preview}'
