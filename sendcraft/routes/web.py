@@ -5,6 +5,7 @@ Sistema completo de rotas web para gestão de emails
 from flask import Blueprint, render_template, request, flash, redirect, url_for, jsonify, abort, current_app
 from datetime import datetime, timedelta
 from sqlalchemy import func, and_
+import smtplib
 
 from sendcraft.models import Domain, EmailAccount, EmailTemplate, EmailLog
 from sendcraft.models.log import EmailStatus
@@ -1229,6 +1230,123 @@ def emails_inbox(account_id=None):
                          account=account,
                          all_accounts=all_accounts,
                          page_title=f'Caixa de Entrada - {account.email_address}')
+
+
+@web_bp.route('/emails/send', methods=['POST'])
+def emails_send():
+    """Send email via SMTP"""
+    from ..models.account import EmailAccount
+    from ..models.log import EmailLog, EmailStatus
+    from ..services.smtp_service import SMTPService
+    from ..utils.logging import get_logger
+    import re
+    
+    logger = get_logger(__name__)
+    
+    try:
+        # Get account ID
+        account_id = request.form.get('account_id')
+        if not account_id:
+            return jsonify({
+                'success': False,
+                'message': 'ID da conta não fornecido'
+            }), 400
+        
+        # Get account
+        account = EmailAccount.query.get(int(account_id))
+        if not account:
+            return jsonify({
+                'success': False,
+                'message': 'Conta não encontrada'
+            }), 404
+        
+        if not account.is_active:
+            return jsonify({
+                'success': False,
+                'message': 'Conta não está ativa'
+            }), 400
+        
+        # Validate required fields
+        to_emails = request.form.get('to', '').strip()
+        subject = request.form.get('subject', '').strip()
+        body_html = request.form.get('body_html', '').strip()
+        body_text = request.form.get('body_text', '').strip()
+        
+        if not to_emails or not subject or not body_html:
+            return jsonify({
+                'success': False,
+                'message': 'Campos obrigatórios: Para, Assunto e Mensagem'
+            }), 400
+        
+        # Validate email format
+        email_list = [e.strip() for e in to_emails.split(',')]
+        email_regex = re.compile(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+        for email in email_list:
+            if not email_regex.match(email):
+                return jsonify({
+                    'success': False,
+                    'message': f'Email inválido: {email}'
+                }), 400
+        
+        # Sanitize HTML (basic - strip script and iframe tags)
+        # Remove script tags and their content
+        body_html = re.sub(r'<script[^>]*>.*?</script>', '', body_html, flags=re.DOTALL | re.IGNORECASE)
+        # Remove iframe tags
+        body_html = re.sub(r'<iframe[^>]*>.*?</iframe>', '', body_html, flags=re.DOTALL | re.IGNORECASE)
+        # Remove on* event handlers
+        body_html = re.sub(r'\s*on\w+\s*=\s*["\'][^"\']*["\']', '', body_html, flags=re.IGNORECASE)
+        
+        # Create email log
+        log = EmailLog(
+            account_id=account.id,
+            recipient_email=to_emails,
+            sender_email=account.email_address,
+            subject=subject,
+            status=EmailStatus.PENDING
+        )
+        db.session.add(log)
+        db.session.commit()
+        
+        # Mark as sending
+        log.mark_sending()
+        
+        # Send via SMTP
+        smtp_service = SMTPService(current_app.config.get('ENCRYPTION_KEY'))
+        success, message, message_id = smtp_service.send_email(
+            account=account,
+            to_email=email_list[0],  # Send to first email, CC the rest
+            subject=subject,
+            html_content=body_html,
+            text_content=body_text,
+            cc=email_list[1:] if len(email_list) > 1 else None
+        )
+        
+        # Update log
+        if success:
+            log.mark_sent(message_id or '', message)
+            logger.info(f"Email sent successfully from {account.email_address} to {to_emails}")
+        else:
+            log.mark_failed(message)
+            logger.error(f"Email send failed: {message}")
+        
+        return jsonify({
+            'success': success,
+            'message': message,
+            'log_id': log.id
+        }), 200 if success else 500
+        
+    except (smtplib.SMTPRecipientsRefused, smtplib.SMTPAuthenticationError, smtplib.SMTPException) as e:
+        logger.error(f"SMTP error: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Erro de envio SMTP. Verifique as configurações da conta de email.'
+        }), 500
+    except Exception as e:
+        logger.error(f"Error sending email: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Erro ao enviar email: {str(e)}'
+        }), 500
 
 
 # ERROR HANDLERS

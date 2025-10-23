@@ -301,6 +301,62 @@
     </div>
 </div>
 
+<!-- Compose Email Modal -->
+<div class="modal fade" id="composeModal" tabindex="-1" aria-labelledby="composeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="composeModalLabel">
+                    <i class="bi bi-pencil-square"></i> Escrever Email
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <form id="composeForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="composeFrom" class="form-label">De:</label>
+                        <input type="text" class="form-control" id="composeFrom" readonly 
+                            value="{{ account.email_address }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="composeTo" class="form-label">Para: <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="composeTo" 
+                            placeholder="exemplo@email.com" required>
+                        <small class="form-text text-muted">Separe múltiplos emails com vírgula</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="composeSubject" class="form-label">Assunto: <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="composeSubject" 
+                            placeholder="Assunto do email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="composeBody" class="form-label">Mensagem: <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="composeBody" rows="12" 
+                            placeholder="Escreva sua mensagem aqui..." required></textarea>
+                        <small class="form-text text-muted">Suporta HTML básico</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="composeAttachments" class="form-label">Anexos (opcional):</label>
+                        <input type="file" class="form-control" id="composeAttachments" multiple>
+                        <small class="form-text text-muted">Formatos permitidos: documentos, imagens, etc.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-outline-primary" id="saveDraftBtn">
+                        <i class="bi bi-save"></i> Guardar Rascunho
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="sendEmailBtn">
+                        <i class="bi bi-send"></i> Enviar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Toast Container for Notifications -->
 <div class="toast-container position-fixed bottom-0 end-0 p-3">
     <div id="emailToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">

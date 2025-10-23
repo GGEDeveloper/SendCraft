@@ -954,8 +954,91 @@ class EmailClient {
     }
 
     composeEmail() {
-        // TODO: Implement compose functionality
-        this.showToast('Info', 'Funcionalidade de composição em desenvolvimento', 'info');
+        // Open compose modal
+        const modal = new bootstrap.Modal(document.getElementById('composeModal'));
+        modal.show();
+        
+        // Setup form submission
+        const form = document.getElementById('composeForm');
+        if (form) {
+            form.addEventListener('submit', (e) => this.handleComposeSubmit(e));
+        }
+    }
+
+    async handleComposeSubmit(e) {
+        e.preventDefault();
+        
+        const to = document.getElementById('composeTo').value.trim();
+        const subject = document.getElementById('composeSubject').value.trim();
+        const body = document.getElementById('composeBody').value.trim();
+        const files = document.getElementById('composeAttachments').files;
+        
+        // Validation
+        if (!to || !subject || !body) {
+            this.showToast('Erro', 'Por favor, preencha todos os campos obrigatórios', 'danger');
+            return;
+        }
+        
+        // Validate email format
+        const emails = to.split(',').map(e => e.trim());
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        for (const email of emails) {
+            if (!emailRegex.test(email)) {
+                this.showToast('Erro', `Email inválido: ${email}`, 'danger');
+                return;
+            }
+        }
+        
+        // Show loading state
+        const sendBtn = document.getElementById('sendEmailBtn');
+        const originalText = sendBtn.innerHTML;
+        sendBtn.disabled = true;
+        sendBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Enviando...';
+        
+        try {
+            // Prepare form data
+            const formData = new FormData();
+            formData.append('account_id', this.accountId);
+            formData.append('to', emails.join(','));
+            formData.append('subject', subject);
+            formData.append('body_html', body);
+            formData.append('body_text', body.replace(/<[^>]*>/g, '')); // Strip HTML for text version
+            
+            // Add attachments if any
+            if (files.length > 0) {
+                for (let i = 0; i < files.length; i++) {
+                    formData.append('attachments', files[i]);
+                }
+            }
+            
+            // Send email
+            const response = await fetch('/emails/send', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                this.showToast('Sucesso', `Email enviado com sucesso para ${emails.join(', ')}`, 'success');
+                
+                // Close modal and reset form
+                bootstrap.Modal.getInstance(document.getElementById('composeModal')).hide();
+                document.getElementById('composeForm').reset();
+                
+                // Reload email list to show sent email
+                this.loadEmailList();
+            } else {
+                this.showToast('Erro', result.message || 'Erro ao enviar email', 'danger');
+            }
+        } catch (error) {
+            console.error('Send email error:', error);
+            this.showToast('Erro', 'Erro de comunicação: ' + error.message, 'danger');
+        } finally {
+            // Restore button state
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = originalText;
+        }
     }
 
     openSettings() {
