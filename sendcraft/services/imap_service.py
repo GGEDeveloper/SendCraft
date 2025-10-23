@@ -89,7 +89,7 @@ class IMAPService:
                     # Authenticate
                     result = self.connection.login(username, password)
                     
-                    if result == 'OK':
+                    if result[0] == 'OK':
                         self.is_connected = True
                         logger.info("✅ IMAP connected with cPanel VBS settings (SSL 60s timeout)")
                         return True
@@ -146,7 +146,7 @@ class IMAPService:
             # Login
             result = self.connection.login(username, password)
             
-            if result == 'OK':
+            if result[0] == 'OK':
                 self.is_connected = True
                 logger.info("✅ IMAP connected via STARTTLS (143) with cPanel settings")
                 return True
