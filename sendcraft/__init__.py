@@ -117,9 +117,11 @@ def register_blueprints(app: Flask) -> None:
     from .routes.web import web_bp
     from .routes.external_api import external_api_bp
     from .routes.api_docs import docs_bp
+    from .routes.email_api import email_api_bp  # Phase 15: Email Sending API
     
     app.register_blueprint(api_v1_bp, url_prefix='/api/v1')
     app.register_blueprint(web_bp)
+    app.register_blueprint(email_api_bp)  # Phase 15: Email Sending API (register first)
     app.register_blueprint(external_api_bp)  # External API for AliTools integration
     app.register_blueprint(docs_bp)  # API documentation
     
