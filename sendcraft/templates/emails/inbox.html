@@ -14,10 +14,18 @@
             <div class="col">
                 <h1 class="h3 mb-0">
                     <i class="bi bi-inbox"></i> Caixa de Entrada
-                    <small class="text-muted ms-2">{{ account.email_address }}</small>
                 </h1>
             </div>
             <div class="col-auto">
+                <div class="account-switcher me-3">
+                    <select class="form-select form-select-sm" id="accountSwitcher">
+                        {% for acc in all_accounts %}
+                        <option value="{{ acc.id }}" {% if acc.id == account.id %}selected{% endif %}>
+                            {{ acc.email_address }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
                 <button class="btn btn-primary" id="syncEmailsBtn">
                     <i class="bi bi-arrow-clockwise"></i> Sincronizar
                 </button>

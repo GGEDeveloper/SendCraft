@@ -956,23 +956,26 @@ def api_stats_accounts():
 
 # ===== EMAIL INBOX ROUTES =====
 @web_bp.route('/emails/inbox')
-def emails_inbox():
-    """Email inbox interface - three-pane email client"""
+@web_bp.route('/emails/inbox/<int:account_id>')
+def emails_inbox(account_id=None):
+    """Email inbox interface - three-pane email client with account switcher"""
     from ..models.account import EmailAccount
     
-    # Get the first active email account (geral@alitools.pt)
-    account = EmailAccount.query.filter_by(
-        email_address='geral@alitools.pt',
-        is_active=True
-    ).first()
+    # Get all active accounts for switcher
+    all_accounts = EmailAccount.query.filter_by(is_active=True).all()
     
-    # If no account with that email, try to find any active account
-    if not account:
-        account = EmailAccount.query.filter_by(is_active=True).first()
-    
-    if not account:
+    if not all_accounts:
         flash('Nenhuma conta de email configurada. Por favor, configure uma conta primeiro.', 'warning')
         return redirect(url_for('web.accounts_list'))
+    
+    # Get the requested account or default to first
+    if account_id:
+        account = EmailAccount.query.filter_by(id=account_id, is_active=True).first()
+        if not account:
+            flash('Conta não encontrada', 'warning')
+            account = all_accounts[0]
+    else:
+        account = all_accounts[0]
     
     # Build the complete email address if needed
     if not hasattr(account, 'email_address') or not account.email_address:
@@ -980,6 +983,7 @@ def emails_inbox():
     
     return render_template('emails/inbox.html', 
                          account=account,
+                         all_accounts=all_accounts,
                          page_title=f'Caixa de Entrada - {account.email_address}')
 
 

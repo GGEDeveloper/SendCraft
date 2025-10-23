@@ -35,6 +35,27 @@
     flex-shrink: 0;
 }
 
+/* Account Switcher */
+.account-switcher {
+    display: inline-block;
+}
+
+.account-switcher .form-select {
+    min-width: 200px;
+    border-color: var(--border-color);
+    transition: all 0.15s ease;
+}
+
+.account-switcher .form-select:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.1);
+}
+
+.account-switcher .form-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
 /* Body - Three Pane Layout */
 .email-client-body {
     flex: 1;
@@ -521,6 +542,21 @@
 
     #backToListBtn {
         display: inline-block !important;
+    }
+
+    .account-switcher {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+
+    .account-switcher .form-select {
+        min-width: 100%;
+    }
+
+    .email-client-header .col-auto {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
     }
 }
 

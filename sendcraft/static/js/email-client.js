@@ -40,6 +40,15 @@ class EmailClient {
     }
 
     setupEventListeners() {
+        // Account switcher
+        const accountSwitcher = document.getElementById('accountSwitcher');
+        if (accountSwitcher) {
+            accountSwitcher.addEventListener('change', (e) => {
+                const newAccountId = e.target.value;
+                window.location.href = `/emails/inbox/${newAccountId}`;
+            });
+        }
+
         // Sync button
         const syncBtn = document.getElementById('syncEmailsBtn');
         if (syncBtn) {
