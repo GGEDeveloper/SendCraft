@@ -100,6 +100,10 @@ class EmailClient {
         document.getElementById('flagBtn')?.addEventListener('click', () => this.toggleEmailFlag());
         document.getElementById('markReadUnreadBtn')?.addEventListener('click', () => this.toggleEmailReadStatus());
         document.getElementById('deleteBtn')?.addEventListener('click', () => this.deleteCurrentEmail());
+        document.getElementById('viewOriginalBtn')?.addEventListener('click', () => this.viewOriginalEmail());
+        document.getElementById('showHeadersBtn')?.addEventListener('click', () => this.toggleHeaders());
+        document.getElementById('printEmailBtn')?.addEventListener('click', () => this.printEmail());
+        document.getElementById('remoteImagesBtn')?.addEventListener('click', () => this.toggleRemoteImages());
 
         // Mobile sidebar toggle
         document.getElementById('sidebarToggle')?.addEventListener('click', () => this.toggleSidebar());
@@ -285,26 +289,39 @@ class EmailClient {
         if (senderNameEl) senderNameEl.textContent = email.from_name || email.from_address;
         if (senderEmailEl) senderEmailEl.textContent = email.from_address;
 
-        // Update date
+        // Update date with relative format and full date on hover
         const dateEl = document.getElementById('emailDate');
         if (dateEl) {
             const emailDate = new Date(email.date);
-            dateEl.textContent = this.formatFullDate(emailDate);
+            const relativeDate = this.formatRelativeDate(emailDate);
+            const fullDate = this.formatFullDate(emailDate);
+            dateEl.textContent = relativeDate;
+            dateEl.title = fullDate; // Show full date on hover
         }
 
         // Update recipient
         const toEl = document.getElementById('emailTo');
         if (toEl) toEl.textContent = email.to_address || document.getElementById('accountEmail').value;
 
-        // Update body
+        // Update body with enhanced HTML rendering
         const bodyEl = document.getElementById('emailBody');
         if (bodyEl) {
             if (email.body_html) {
-                // Sanitize and display HTML
-                bodyEl.innerHTML = this.sanitizeHtml(email.body_html);
+                // Enhanced HTML rendering with proper sanitization
+                bodyEl.innerHTML = this.sanitizeAndRenderHtml(email.body_html);
+                
+                // Block remote images by default
+                setTimeout(() => {
+                    const images = bodyEl.querySelectorAll('img[src^="http"]');
+                    images.forEach(img => {
+                        img.dataset.originalSrc = img.src;
+                        img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext x="50" y="50" text-anchor="middle" fill="%23999"%3EImagem bloqueada%3C/text%3E%3C/svg%3E';
+                        img.dataset.blocked = 'true';
+                    });
+                }, 100);
             } else if (email.body_text) {
-                // Convert text to HTML
-                bodyEl.innerHTML = `<pre style="white-space: pre-wrap; font-family: inherit;">${this.escapeHtml(email.body_text)}</pre>`;
+                // Convert text to HTML with proper formatting
+                bodyEl.innerHTML = this.formatPlainText(email.body_text);
             } else {
                 bodyEl.innerHTML = '<p class="text-muted">Sem conteúdo disponível</p>';
             }
@@ -359,10 +376,20 @@ class EmailClient {
         attachments.forEach(attachment => {
             const div = document.createElement('div');
             div.className = 'attachment-item';
+            
+            // Get appropriate icon based on file type
+            const icon = this.getFileIcon(attachment.filename, attachment.content_type);
+            
+            // Create download link (we'll need to implement the API endpoint)
+            const downloadUrl = `/api/v1/emails/inbox/${this.accountId}/attachments/${attachment.content_id || attachment.filename}`;
+            
             div.innerHTML = `
-                <i class="bi bi-file-earmark"></i>
-                <span>${attachment.filename}</span>
-                <small class="text-muted ms-2">(${this.formatFileSize(attachment.size)})</small>
+                <i class="${icon}"></i>
+                <span class="attachment-name">${this.escapeHtml(attachment.filename)}</span>
+                <small class="text-muted ms-2">${this.formatFileSize(attachment.size || 0)}</small>
+                <a href="${downloadUrl}" class="btn btn-sm btn-outline-primary ms-auto" download>
+                    <i class="bi bi-download"></i> Transferir
+                </a>
             `;
             list.appendChild(div);
         });
@@ -915,6 +942,107 @@ class EmailClient {
         this.showToast('Info', 'Funcionalidade de reencaminhamento em desenvolvimento', 'info');
     }
 
+    viewOriginalEmail() {
+        if (!this.currentEmail) return;
+        
+        const url = `/api/v1/emails/inbox/${this.accountId}/${this.currentEmail.id}/raw`;
+        window.open(url, '_blank');
+    }
+
+    toggleHeaders() {
+        const headersDiv = document.getElementById('emailHeaders');
+        if (!headersDiv) return;
+        
+        const isVisible = headersDiv.style.display !== 'none';
+        headersDiv.style.display = isVisible ? 'none' : 'block';
+        
+        const btn = document.getElementById('showHeadersBtn');
+        if (btn) {
+            btn.textContent = isVisible ? 'Mostrar Cabeçalhos' : 'Ocultar Cabeçalhos';
+        }
+    }
+
+    printEmail() {
+        if (!this.currentEmail) return;
+        
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>${this.escapeHtml(this.currentEmail.subject || 'Email')}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 20px; }
+                        .email-header { border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
+                        .email-meta { margin-bottom: 15px; }
+                        .email-body { line-height: 1.6; }
+                    </style>
+                </head>
+                <body>
+                    <div class="email-header">
+                        <h2>${this.escapeHtml(this.currentEmail.subject || 'Sem assunto')}</h2>
+                    </div>
+                    <div class="email-meta">
+                        <p><strong>De:</strong> ${this.escapeHtml(this.currentEmail.from_name || this.currentEmail.from_address)}</p>
+                        <p><strong>Para:</strong> ${this.escapeHtml(this.currentEmail.to_address || '')}</p>
+                        <p><strong>Data:</strong> ${this.formatFullDate(new Date(this.currentEmail.date))}</p>
+                    </div>
+                    <div class="email-body">
+                        ${this.currentEmail.body_html ? this.sanitizeAndRenderHtml(this.currentEmail.body_html) : `<pre>${this.escapeHtml(this.currentEmail.body_text || '')}</pre>`}
+                    </div>
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+    }
+
+    toggleRemoteImages() {
+        const emailBody = document.getElementById('emailBody');
+        if (!emailBody) return;
+        
+        const images = emailBody.querySelectorAll('img[src^="http"]');
+        let someBlocked = false;
+        
+        images.forEach(img => {
+            if (img.style.display === 'none' || img.dataset.blocked === 'true') {
+                someBlocked = true;
+            }
+        });
+        
+        const shouldShow = someBlocked;
+        
+        images.forEach(img => {
+            if (shouldShow) {
+                // Show image
+                img.style.display = '';
+                img.dataset.blocked = 'false';
+                // Set actual src if it was blocked
+                if (img.dataset.originalSrc) {
+                    img.src = img.dataset.originalSrc;
+                }
+            } else {
+                // Block image
+                img.dataset.originalSrc = img.src;
+                img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext x="50" y="50" text-anchor="middle" fill="%23999"%3EImagem bloqueada%3C/text%3E%3C/svg%3E';
+                img.style.display = '';
+                img.dataset.blocked = 'true';
+            }
+        });
+        
+        const btn = document.getElementById('remoteImagesBtn');
+        if (btn) {
+            btn.textContent = shouldShow ? 'Ocultar Imagens Remotas' : 'Mostrar Imagens Remotas';
+            btn.classList.toggle('btn-outline-secondary', !shouldShow);
+            btn.classList.toggle('btn-outline-warning', shouldShow);
+        }
+        
+        this.showToast(
+            'Info', 
+            shouldShow ? 'Imagens remotas ativadas' : 'Imagens remotas bloqueadas', 
+            'info'
+        );
+    }
+
     // Utility functions
     formatDate(date) {
         const now = new Date();
@@ -930,6 +1058,36 @@ class EmailClient {
             return date.toLocaleDateString('pt-PT', { weekday: 'short' });
         } else {
             return date.toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' });
+        }
+    }
+
+    formatRelativeDate(date) {
+        const now = new Date();
+        const diff = now - date;
+        const seconds = Math.floor(diff / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
+
+        if (seconds < 60) {
+            return 'há alguns segundos';
+        } else if (minutes < 60) {
+            return `há ${minutes} min${minutes !== 1 ? 'utos' : 'uto'}`;
+        } else if (hours < 24) {
+            return `há ${hours} hora${hours !== 1 ? 's' : ''}`;
+        } else if (days === 1) {
+            return 'ontem';
+        } else if (days < 7) {
+            return `há ${days} dia${days !== 1 ? 's' : ''}`;
+        } else if (days < 30) {
+            const weeks = Math.floor(days / 7);
+            return `há ${weeks} semana${weeks !== 1 ? 's' : ''}`;
+        } else if (days < 365) {
+            const months = Math.floor(days / 30);
+            return `há ${months} mês${months !== 1 ? 'es' : ''}`;
+        } else {
+            const years = Math.floor(days / 365);
+            return `há ${years} ano${years !== 1 ? 's' : ''}`;
         }
     }
 
@@ -979,6 +1137,115 @@ class EmailClient {
         });
 
         return div.innerHTML;
+    }
+
+    sanitizeAndRenderHtml(html) {
+        // Enhanced HTML sanitization with better formatting
+        const div = document.createElement('div');
+        div.innerHTML = html;
+        
+        // Remove dangerous elements
+        div.querySelectorAll('script, link, meta, base, object, embed, iframe, form').forEach(el => el.remove());
+        
+        // Remove inline event handlers
+        div.querySelectorAll('*').forEach(el => {
+            Array.from(el.attributes).forEach(attr => {
+                if (attr.name.startsWith('on') || attr.name.startsWith('javascript:')) {
+                    el.removeAttribute(attr.name);
+                }
+            });
+        });
+        
+        // Preserve email styling but add our own container
+        const container = document.createElement('div');
+        container.className = 'email-html-content';
+        container.innerHTML = div.innerHTML;
+        
+        return container.outerHTML;
+    }
+
+    formatPlainText(text) {
+        // Convert plain text to formatted HTML
+        const lines = text.split('\n');
+        const formatted = lines.map(line => {
+            // Detect email signatures
+            if (line.match(/^(--|__|\|)/) || line.match(/^Atenciosamente|^Best regards|^Cordiais|^Sinceramente/i)) {
+                return `<div class="email-signature">${this.escapeHtml(line)}</div>`;
+            }
+            
+            // Detect quoted/reply text
+            if (line.match(/^>/)) {
+                return `<div class="email-quote">${this.escapeHtml(line)}</div>`;
+            }
+            
+            // Empty lines
+            if (line.trim() === '') {
+                return '<br>';
+            }
+            
+            // Regular paragraphs
+            return `<p>${this.escapeHtml(line)}</p>`;
+        }).join('');
+        
+        return `<div class="email-text-content">${formatted}</div>`;
+    }
+
+    getFileIcon(filename, contentType) {
+        // Get appropriate Bootstrap icon based on file type
+        const ext = filename.split('.').pop().toLowerCase();
+        
+        // Image files
+        if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp'].includes(ext)) {
+            return 'bi bi-file-image';
+        }
+        
+        // PDF files
+        if (ext === 'pdf') {
+            return 'bi bi-file-pdf';
+        }
+        
+        // Word documents
+        if (['doc', 'docx'].includes(ext)) {
+            return 'bi bi-file-word';
+        }
+        
+        // Excel spreadsheets
+        if (['xls', 'xlsx'].includes(ext)) {
+            return 'bi bi-file-excel';
+        }
+        
+        // PowerPoint
+        if (['ppt', 'pptx'].includes(ext)) {
+            return 'bi bi-file-ppt';
+        }
+        
+        // Archive files
+        if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) {
+            return 'bi bi-file-zip';
+        }
+        
+        // Audio files
+        if (['mp3', 'wav', 'ogg', 'flac'].includes(ext)) {
+            return 'bi bi-file-music';
+        }
+        
+        // Video files
+        if (['mp4', 'avi', 'mov', 'wmv'].includes(ext)) {
+            return 'bi bi-file-play';
+        }
+        
+        // Code files
+        if (['js', 'ts', 'py', 'java', 'html', 'css', 'xml', 'json'].includes(ext)) {
+            return 'bi bi-file-code';
+        }
+        
+        // Text files
+        if (['txt', 'md', 'log'].includes(ext)) {
+            return 'bi bi-file-text';
+        }
+        
+        // Default
+        return 'bi bi-file-earmark';
     }
 
     showToast(title, message, type = 'info') {

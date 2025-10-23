@@ -1,7 +1,8 @@
 """API v1 - Endpoints para Email Inbox."""
-from flask import Blueprint, jsonify, request, current_app
+from flask import Blueprint, jsonify, request, current_app, Response
 from flask_cors import cross_origin
 from typing import Dict, Any
+import json
 
 from ...models import EmailAccount, EmailInbox
 from ...services.imap_service import IMAPService
@@ -582,3 +583,86 @@ def get_inbox_stats(account_id: int):
     except Exception as e:
         logger.error(f"Error getting inbox stats: {e}")
         return jsonify({'error': 'Failed to get stats'}), 500
+
+
+@bp.route('/<int:account_id>/<int:email_id>/attachments', methods=['GET'])
+@cross_origin()
+def get_email_attachments(account_id: int, email_id: int):
+    """
+    Lista anexos de um email.
+    
+    GET /api/v1/inbox/<account_id>/<email_id>/attachments
+    
+    Returns:
+        200: Lista de anexos
+        404: Email não encontrado
+    """
+    try:
+        # Buscar email
+        email = EmailInbox.query.filter_by(
+            id=email_id,
+            account_id=account_id
+        ).first()
+        
+        if not email:
+            raise NotFound(f"Email {email_id} not found")
+        
+        # Obter anexos
+        attachments = email.attachments if hasattr(email, 'attachments') else []
+        
+        return jsonify({
+            'attachments': attachments,
+            'count': len(attachments)
+        }), 200
+        
+    except NotFound as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        logger.error(f"Error getting attachments: {e}")
+        return jsonify({'error': 'Failed to get attachments'}), 500
+
+
+@bp.route('/<int:account_id>/<int:email_id>/raw', methods=['GET'])
+@cross_origin()
+def get_email_raw(account_id: int, email_id: int):
+    """
+    Obtém email original em formato MIME.
+    
+    GET /api/v1/inbox/<account_id>/<email_id>/raw
+    
+    Returns:
+        200: Conteúdo MIME do email
+        404: Email não encontrado
+    """
+    try:
+        # Buscar email
+        email = EmailInbox.query.filter_by(
+            id=email_id,
+            account_id=account_id
+        ).first()
+        
+        if not email:
+            raise NotFound(f"Email {email_id} not found")
+        
+        # Construir conteúdo MIME básico
+        raw_content = f"""From: {email.from_address}
+To: {email.to_address}
+Subject: {email.subject}
+Date: {email.received_at}
+
+{email.body_text or ''}
+"""
+        
+        return Response(
+            raw_content,
+            mimetype='message/rfc822',
+            headers={
+                'Content-Disposition': f'attachment; filename="email_{email_id}.eml"'
+            }
+        ), 200
+        
+    except NotFound as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        logger.error(f"Error getting raw email: {e}")
+        return jsonify({'error': 'Failed to get raw email'}), 500
