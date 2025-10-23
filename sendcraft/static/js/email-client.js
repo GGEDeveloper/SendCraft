@@ -185,10 +185,42 @@ class EmailClient {
 
         container.innerHTML = '';
 
-        this.emails.forEach(email => {
+        // Apply client-side filter if backend doesn't support
+        let filteredEmails = this.emails;
+        
+        if (this.currentFilter === 'unread') {
+            filteredEmails = this.emails.filter(email => !email.is_read);
+        } else if (this.currentFilter === 'flagged') {
+            filteredEmails = this.emails.filter(email => email.is_flagged);
+        } else if (this.currentFilter === 'attachments') {
+            filteredEmails = this.emails.filter(email => email.has_attachments);
+        }
+
+        filteredEmails.forEach(email => {
             const emailItem = this.createEmailItem(email);
             container.appendChild(emailItem);
         });
+        
+        // Update empty state if no emails after filtering
+        const emptyDiv = document.getElementById('emailListEmpty');
+        if (filteredEmails.length === 0 && emptyDiv) {
+            emptyDiv.style.display = 'flex';
+            const emptyTitle = emptyDiv.querySelector('h5');
+            const emptyMessage = emptyDiv.querySelector('p');
+            if (emptyTitle) emptyTitle.textContent = 'Nenhum email encontrado';
+            if (emptyMessage) emptyMessage.textContent = `Nenhum email ${this.getFilterDescription()} encontrado.`;
+        } else if (emptyDiv) {
+            emptyDiv.style.display = 'none';
+        }
+    }
+    
+    getFilterDescription() {
+        switch (this.currentFilter) {
+            case 'unread': return 'não lido';
+            case 'flagged': return 'marcado';
+            case 'attachments': return 'com anexos';
+            default: return '';
+        }
     }
 
     createEmailItem(email) {
@@ -196,9 +228,8 @@ class EmailClient {
         div.className = `email-item ${email.is_read ? 'read' : 'unread'}`;
         div.dataset.emailId = email.id;
 
-        // Format date
-        const emailDate = new Date(email.date);
-        const formattedDate = this.formatDate(emailDate);
+        // Format date - use formatRelativeDate for consistent date handling
+        const formattedDate = this.formatRelativeDate(email.date);
 
         // Create preview text
         const preview = email.body_text ? 
@@ -292,9 +323,8 @@ class EmailClient {
         // Update date with relative format and full date on hover
         const dateEl = document.getElementById('emailDate');
         if (dateEl) {
-            const emailDate = new Date(email.date);
-            const relativeDate = this.formatRelativeDate(emailDate);
-            const fullDate = this.formatFullDate(emailDate);
+            const relativeDate = this.formatRelativeDate(email.date);
+            const fullDate = this.formatFullDate(email.date);
             dateEl.textContent = relativeDate;
             dateEl.title = fullDate; // Show full date on hover
         }
@@ -887,14 +917,20 @@ class EmailClient {
     }
 
     setFilter(filter) {
-        // Update active filter
+        // Update active filter UI
         document.querySelectorAll('.nav-pills .nav-link').forEach(link => {
             link.classList.remove('active');
         });
         document.querySelector(`[data-filter="${filter}"]`)?.classList.add('active');
 
+        // Set filter state
         this.currentFilter = filter;
         this.currentPage = 1;
+        
+        // Clear current email selection when filtering
+        this.hideEmailContent();
+        
+        // Reload email list with new filter
         this.loadEmailList();
     }
 
@@ -984,7 +1020,7 @@ class EmailClient {
                     <div class="email-meta">
                         <p><strong>De:</strong> ${this.escapeHtml(this.currentEmail.from_name || this.currentEmail.from_address)}</p>
                         <p><strong>Para:</strong> ${this.escapeHtml(this.currentEmail.to_address || '')}</p>
-                        <p><strong>Data:</strong> ${this.formatFullDate(new Date(this.currentEmail.date))}</p>
+                        <p><strong>Data:</strong> ${this.formatFullDate(this.currentEmail.date)}</p>
                     </div>
                     <div class="email-body">
                         ${this.currentEmail.body_html ? this.sanitizeAndRenderHtml(this.currentEmail.body_html) : `<pre>${this.escapeHtml(this.currentEmail.body_text || '')}</pre>`}
@@ -1061,45 +1097,103 @@ class EmailClient {
         }
     }
 
-    formatRelativeDate(date) {
-        const now = new Date();
-        const diff = now - date;
-        const seconds = Math.floor(diff / 1000);
-        const minutes = Math.floor(seconds / 60);
-        const hours = Math.floor(minutes / 60);
-        const days = Math.floor(hours / 24);
-
-        if (seconds < 60) {
-            return 'há alguns segundos';
-        } else if (minutes < 60) {
-            return `há ${minutes} min${minutes !== 1 ? 'utos' : 'uto'}`;
-        } else if (hours < 24) {
-            return `há ${hours} hora${hours !== 1 ? 's' : ''}`;
-        } else if (days === 1) {
-            return 'ontem';
-        } else if (days < 7) {
-            return `há ${days} dia${days !== 1 ? 's' : ''}`;
-        } else if (days < 30) {
-            const weeks = Math.floor(days / 7);
-            return `há ${weeks} semana${weeks !== 1 ? 's' : ''}`;
-        } else if (days < 365) {
-            const months = Math.floor(days / 30);
-            return `há ${months} mês${months !== 1 ? 'es' : ''}`;
-        } else {
-            const years = Math.floor(days / 365);
-            return `há ${years} ano${years !== 1 ? 's' : ''}`;
+    formatRelativeDate(dateInput) {
+        try {
+            let date;
+            
+            // Handle multiple input formats
+            if (typeof dateInput === 'string') {
+                // Try parsing ISO string first
+                if (dateInput.includes('T') || dateInput.includes('-')) {
+                    date = new Date(dateInput);
+                } else {
+                    // Try parsing as timestamp
+                    const timestamp = parseInt(dateInput);
+                    if (!isNaN(timestamp)) {
+                        date = new Date(timestamp > 1000000000000 ? timestamp : timestamp * 1000);
+                    } else {
+                        date = new Date(dateInput);
+                    }
+                }
+            } else if (dateInput instanceof Date) {
+                date = dateInput;
+            } else if (typeof dateInput === 'number') {
+                // Handle numeric timestamp
+                date = new Date(dateInput > 1000000000000 ? dateInput : dateInput * 1000);
+            } else {
+                console.warn('Invalid date input type:', typeof dateInput, dateInput);
+                return 'Data inválida';
+            }
+            
+            // Validate parsed date
+            if (isNaN(date.getTime())) {
+                console.warn('Date parsing failed for:', dateInput);
+                return 'Data inválida';
+            }
+            
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMinutes = Math.floor(diffMs / (1000 * 60));
+            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            
+            // Portuguese relative date formatting
+            if (diffMinutes < 1) {
+                return 'agora';
+            } else if (diffMinutes < 60) {
+                return `há ${diffMinutes} minuto${diffMinutes !== 1 ? 's' : ''}`;
+            } else if (diffHours < 24) {
+                return `há ${diffHours} hora${diffHours !== 1 ? 's' : ''}`;
+            } else if (diffDays === 1) {
+                return 'ontem';
+            } else if (diffDays < 7) {
+                return `há ${diffDays} dia${diffDays !== 1 ? 's' : ''}`;
+            } else if (diffDays < 30) {
+                const weeks = Math.floor(diffDays / 7);
+                return `há ${weeks} semana${weeks !== 1 ? 's' : ''}`;
+            } else if (diffDays < 365) {
+                const months = Math.floor(diffDays / 30);
+                return `há ${months} mês${months !== 1 ? 'es' : ''}`;
+            } else {
+                const years = Math.floor(diffDays / 365);
+                return `há ${years} ano${years !== 1 ? 's' : ''}`;
+            }
+            
+        } catch (error) {
+            console.error('Date formatting error:', error, 'Input:', dateInput);
+            return 'Data inválida';
         }
     }
 
-    formatFullDate(date) {
-        return date.toLocaleDateString('pt-PT', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+    formatFullDate(dateInput) {
+        try {
+            let date;
+            if (typeof dateInput === 'string') {
+                date = new Date(dateInput);
+            } else if (dateInput instanceof Date) {
+                date = dateInput;
+            } else if (typeof dateInput === 'number') {
+                date = new Date(dateInput > 1000000000000 ? dateInput : dateInput * 1000);
+            } else {
+                return 'Data inválida';
+            }
+            
+            if (isNaN(date.getTime())) {
+                return 'Data inválida';
+            }
+            
+            return date.toLocaleDateString('pt-PT', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        } catch (error) {
+            console.error('Full date formatting error:', error);
+            return 'Data inválida';
+        }
     }
 
     formatFileSize(bytes) {
