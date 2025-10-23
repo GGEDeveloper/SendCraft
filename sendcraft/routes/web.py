@@ -868,16 +868,25 @@ def api_account_test_smtp(account_id):
                 }
             })
         else:
+            # Portuguese error messages
+            error_msg = result.get('error', 'Falha na conexão SMTP')
+            if 'authentication' in error_msg.lower() or '535' in error_msg:
+                error_msg = 'Credenciais SMTP inválidas'
+            elif 'connection' in error_msg.lower() or 'timeout' in error_msg.lower():
+                error_msg = 'Erro de conexão ao servidor SMTP'
+            elif 'refused' in error_msg.lower():
+                error_msg = 'Conexão recusada pelo servidor SMTP'
+            
             return jsonify({
                 'success': False,
-                'error': result.get('error', 'Falha na conexão SMTP'),
+                'error': error_msg,
                 'details': {
                     'server': account.smtp_server,
                     'port': account.smtp_port,
                     'tls': account.use_tls,
                     'ssl': account.use_ssl,
                     'status': 'error',
-                    'message': result.get('error', 'Connection failed'),
+                    'message': error_msg,
                     'security': 'TLS' if account.use_tls else 'SSL' if account.use_ssl else 'None'
                 }
             })
@@ -1234,12 +1243,14 @@ def emails_inbox(account_id=None):
 
 @web_bp.route('/emails/send', methods=['POST'])
 def emails_send():
-    """Send email via SMTP"""
+    """Send email via SMTP with attachments support"""
     from ..models.account import EmailAccount
     from ..models.log import EmailLog, EmailStatus
     from ..services.smtp_service import SMTPService
     from ..utils.logging import get_logger
     import re
+    import mimetypes
+    import os
     
     logger = get_logger(__name__)
     
@@ -1296,6 +1307,47 @@ def emails_send():
         # Remove on* event handlers
         body_html = re.sub(r'\s*on\w+\s*=\s*["\'][^"\']*["\']', '', body_html, flags=re.IGNORECASE)
         
+        # Process attachments
+        attachments = []
+        if 'attachments' in request.files:
+            files = request.files.getlist('attachments')
+            for file in files:
+                if file and file.filename:
+                    # Validate file size (5MB limit)
+                    file.seek(0, os.SEEK_END)
+                    file_size = file.tell()
+                    file.seek(0)
+                    
+                    if file_size > 5 * 1024 * 1024:  # 5MB
+                        return jsonify({
+                            'success': False,
+                            'message': f'Anexo {file.filename} é demasiado grande (máximo 5MB)'
+                        }), 400
+                    
+                    # Validate file extension
+                    allowed_extensions = {'.txt', '.pdf', '.png', '.jpg', '.jpeg', '.gif', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'}
+                    file_ext = os.path.splitext(file.filename)[1].lower()
+                    if file_ext not in allowed_extensions:
+                        return jsonify({
+                            'success': False,
+                            'message': f'Tipo de ficheiro {file_ext} não permitido'
+                        }), 400
+                    
+                    # Read file content
+                    file_content = file.read()
+                    file.seek(0)  # Reset file pointer
+                    
+                    # Get content type
+                    content_type, _ = mimetypes.guess_type(file.filename)
+                    if not content_type:
+                        content_type = 'application/octet-stream'
+                    
+                    attachments.append({
+                        'filename': file.filename,
+                        'content': file_content,
+                        'content_type': content_type
+                    })
+        
         # Create email log
         log = EmailLog(
             account_id=account.id,
@@ -1310,15 +1362,17 @@ def emails_send():
         # Mark as sending
         log.mark_sending()
         
-        # Send via SMTP
-        smtp_service = SMTPService(current_app.config.get('ENCRYPTION_KEY'))
+        # Send via SMTP - Use same decryption method as CLI
+        encryption_key = current_app.config.get('SECRET_KEY', '')
+        smtp_service = SMTPService(encryption_key)
         success, message, message_id = smtp_service.send_email(
             account=account,
             to_email=email_list[0],  # Send to first email, CC the rest
             subject=subject,
             html_content=body_html,
             text_content=body_text,
-            cc=email_list[1:] if len(email_list) > 1 else None
+            cc=email_list[1:] if len(email_list) > 1 else None,
+            attachments=attachments if attachments else None
         )
         
         # Update log
@@ -1335,7 +1389,19 @@ def emails_send():
             'log_id': log.id
         }), 200 if success else 500
         
-    except (smtplib.SMTPRecipientsRefused, smtplib.SMTPAuthenticationError, smtplib.SMTPException) as e:
+    except smtplib.SMTPAuthenticationError as e:
+        logger.error(f"SMTP authentication error: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Credenciais SMTP inválidas. Verifique o username e password.'
+        }), 401
+    except smtplib.SMTPRecipientsRefused as e:
+        logger.error(f"SMTP recipients refused: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Destinatário recusado pelo servidor SMTP'
+        }), 400
+    except smtplib.SMTPException as e:
         logger.error(f"SMTP error: {e}")
         return jsonify({
             'success': False,

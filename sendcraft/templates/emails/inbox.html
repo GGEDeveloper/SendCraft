@@ -311,7 +311,7 @@
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
-            <form id="composeForm">
+            <form id="composeForm" enctype="multipart/form-data">
                 <div class="modal-body">
                     <div class="mb-3">
                         <label for="composeFrom" class="form-label">De:</label>
@@ -337,8 +337,10 @@
                     </div>
                     <div class="mb-3">
                         <label for="composeAttachments" class="form-label">Anexos (opcional):</label>
-                        <input type="file" class="form-control" id="composeAttachments" multiple>
-                        <small class="form-text text-muted">Formatos permitidos: documentos, imagens, etc.</small>
+                        <input type="file" class="form-control" id="composeAttachments" name="attachments" multiple 
+                            accept=".txt,.pdf,.png,.jpg,.jpeg,.gif,.doc,.docx,.xls,.xlsx,.ppt,.pptx">
+                        <small class="form-text text-muted">Formatos permitidos: .txt, .pdf, .png, .jpg, .doc, .docx, .xls, .xlsx, .ppt, .pptx (máximo 5MB cada)</small>
+                        <div id="attachmentList" class="mt-2"></div>
                     </div>
                 </div>
                 <div class="modal-footer">

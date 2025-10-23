@@ -963,6 +963,12 @@ class EmailClient {
         if (form) {
             form.addEventListener('submit', (e) => this.handleComposeSubmit(e));
         }
+        
+        // Setup attachment preview
+        const attachmentInput = document.getElementById('composeAttachments');
+        if (attachmentInput) {
+            attachmentInput.addEventListener('change', (e) => this.handleAttachmentChange(e));
+        }
     }
 
     async handleComposeSubmit(e) {
@@ -1039,6 +1045,52 @@ class EmailClient {
             sendBtn.disabled = false;
             sendBtn.innerHTML = originalText;
         }
+    }
+
+    handleAttachmentChange(e) {
+        const files = e.target.files;
+        const attachmentList = document.getElementById('attachmentList');
+        
+        if (!attachmentList) return;
+        
+        // Clear previous list
+        attachmentList.innerHTML = '';
+        
+        if (files.length === 0) return;
+        
+        // Create attachment preview
+        const container = document.createElement('div');
+        container.className = 'attachment-preview';
+        
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const fileSize = (file.size / 1024 / 1024).toFixed(2); // MB
+            
+            // Validate file size (5MB limit)
+            if (file.size > 5 * 1024 * 1024) {
+                this.showToast('Erro', `Ficheiro ${file.name} é demasiado grande (máximo 5MB)`, 'danger');
+                continue;
+            }
+            
+            const attachmentItem = document.createElement('div');
+            attachmentItem.className = 'attachment-item d-flex align-items-center justify-content-between p-2 mb-2 bg-light rounded';
+            attachmentItem.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-paperclip me-2"></i>
+                    <div>
+                        <div class="fw-bold">${file.name}</div>
+                        <small class="text-muted">${fileSize} MB</small>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.parentElement.remove()">
+                    <i class="bi bi-x"></i>
+                </button>
+            `;
+            
+            container.appendChild(attachmentItem);
+        }
+        
+        attachmentList.appendChild(container);
     }
 
     openSettings() {
