@@ -2,7 +2,7 @@
 SendCraft Phase 15: Email Sending API
 API para envio de emails com anexos para e-commerce
 """
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, g
 from flask_cors import cross_origin
 from typing import Dict, Any, List, Optional
 import base64
@@ -15,7 +15,7 @@ from ..models.log import EmailStatus
 from ..services.smtp_service import SMTPService
 from ..services.attachment_service import AttachmentService
 from ..services.email_queue import get_email_queue
-from ..services.auth_service import require_api_key
+from ..services.auth_service import require_account_api_key
 from ..extensions import db
 from ..utils.logging import get_logger
 
@@ -27,7 +27,7 @@ email_api_bp = Blueprint('email_api', __name__, url_prefix='/api/v1')
 
 @email_api_bp.route('/send', methods=['POST'])
 @cross_origin()
-@require_api_key
+@require_account_api_key
 def send_email():
     """
     Envio de email individual ou em lote com anexos.
@@ -75,18 +75,19 @@ def send_email():
             return jsonify({
                 'success': False,
                 'error': 'validation_failed',
-                'message': 'JSON body required'
+                'message': 'JSON body required',
+                'details': {}
             }), 400
         
         # Validate required fields
-        required_fields = ['to', 'subject', 'domain', 'account']
+        required_fields = ['to', 'subject']
         missing_fields = [field for field in required_fields if not data.get(field)]
         
         if missing_fields:
             return jsonify({
                 'success': False,
                 'error': 'validation_failed',
-                'message': f'Missing required fields: {", ".join(missing_fields)}',
+                'message': f'Campos obrigatórios em falta: {", ".join(missing_fields)}',
                 'details': {
                     'missing_fields': missing_fields,
                     'required_fields': required_fields
@@ -98,7 +99,8 @@ def send_email():
             return jsonify({
                 'success': False,
                 'error': 'validation_failed',
-                'message': 'At least one content field (html or text) is required'
+                'message': 'Pelo menos um campo de conteúdo (html ou text) é obrigatório',
+                'details': {}
             }), 400
         
         # Validate recipients
@@ -107,7 +109,8 @@ def send_email():
             return jsonify({
                 'success': False,
                 'error': 'validation_failed',
-                'message': 'Field "to" must be a non-empty array'
+                'message': 'Campo "to" deve ser um array não vazio',
+                'details': {}
             }), 400
         
         # Check bulk limits
@@ -115,29 +118,21 @@ def send_email():
             return jsonify({
                 'success': False,
                 'error': 'validation_failed',
-                'message': 'Bulk emails limited to 100 recipients maximum',
+                'message': 'Emails em lote limitados a 100 destinatários máximo',
                 'details': {
                     'recipients_count': len(to_emails),
                     'max_allowed': 100
                 }
             }), 400
         
-        # Get domain and account
-        domain = Domain.query.filter_by(name=data['domain']).first()
-        if not domain or not domain.is_active:
-            return jsonify({
-                'success': False,
-                'error': 'domain_not_found',
-                'message': f"Domain '{data['domain']}' not found or inactive"
-            }), 404
-        
-        account_email = f"{data['account']}@{data['domain']}"
-        account = EmailAccount.query.filter_by(email_address=account_email).first()
+        # Use authenticated account
+        account = g.account
         if not account or not account.is_active:
             return jsonify({
                 'success': False,
                 'error': 'account_not_found',
-                'message': f"Account '{account_email}' not found or inactive"
+                'message': f"Conta autenticada não encontrada ou inativa",
+                'details': {}
             }), 404
         
         # Check account limits
@@ -146,7 +141,8 @@ def send_email():
             return jsonify({
                 'success': False,
                 'error': 'rate_limit_exceeded',
-                'message': limit_msg
+                'message': limit_msg,
+                'details': {}
             }), 429
         
         # Validate attachments if present
@@ -159,7 +155,7 @@ def send_email():
                     'success': False,
                     'error': 'attachment_validation_failed',
                     'message': validation_result['message'],
-                    'details': validation_result['details']
+                    'details': validation_result.get('details', {})
                 }), 400
         
         # Check idempotency
@@ -208,7 +204,7 @@ def send_email():
 
 @email_api_bp.route('/send/<message_id>/status', methods=['GET'])
 @cross_origin()
-@require_api_key
+@require_account_api_key
 def get_send_status(message_id: str):
     """
     Consultar status de envio.
@@ -227,28 +223,35 @@ def get_send_status(message_id: str):
                 log_id = int(message_id[4:])
             except ValueError:
                 return jsonify({
+                    'success': False,
                     'error': 'invalid_message_id',
-                    'message': 'Invalid message ID format'
+                    'message': 'Formato de ID de mensagem inválido',
+                    'details': {}
                 }), 400
         else:
             try:
                 log_id = int(message_id)
             except ValueError:
                 return jsonify({
+                    'success': False,
                     'error': 'invalid_message_id',
-                    'message': 'Invalid message ID format'
+                    'message': 'Formato de ID de mensagem inválido',
+                    'details': {}
                 }), 400
         
         # Get email log
         log = EmailLog.query.get(log_id)
         if not log:
             return jsonify({
+                'success': False,
                 'error': 'message_not_found',
-                'message': f'Message {message_id} not found'
+                'message': f'Mensagem {message_id} não encontrada',
+                'details': {}
             }), 404
         
         # Build response
         response = {
+            'success': True,
             'message_id': f"MSG-{log.id:06d}",
             'status': log.status.value,
             'created_at': log.created_at.isoformat() + 'Z',
@@ -258,7 +261,12 @@ def get_send_status(message_id: str):
                 'smtp_response': log.smtp_response or 'N/A'
             }],
             'attachments_count': len(log.variables_used.get('attachments', [])) if log.variables_used else 0,
-            'error_message': log.error_message
+            'error_message': log.error_message,
+            'details': {
+                'account_id': log.account_id,
+                'sender_email': log.sender_email,
+                'subject': log.subject
+            }
         }
         
         if log.sent_at:
@@ -269,14 +277,16 @@ def get_send_status(message_id: str):
     except Exception as e:
         logger.error(f"Email API status error: {e}", exc_info=True)
         return jsonify({
+            'success': False,
             'error': 'internal_server_error',
-            'message': str(e)
+            'message': str(e),
+            'details': {}
         }), 500
 
 
 @email_api_bp.route('/attachments/upload', methods=['POST'])
 @cross_origin()
-@require_api_key
+@require_account_api_key
 def upload_attachment():
     """
     Upload prévio de anexos grandes.
@@ -302,8 +312,10 @@ def upload_attachment():
         
         if not data:
             return jsonify({
+                'success': False,
                 'error': 'validation_failed',
-                'message': 'JSON body required'
+                'message': 'JSON body required',
+                'details': {}
             }), 400
         
         # Validate required fields
@@ -312,8 +324,10 @@ def upload_attachment():
         
         if missing_fields:
             return jsonify({
+                'success': False,
                 'error': 'validation_failed',
-                'message': f'Missing required fields: {", ".join(missing_fields)}'
+                'message': f'Campos obrigatórios em falta: {", ".join(missing_fields)}',
+                'details': {}
             }), 400
         
         # Upload attachment using service
@@ -322,23 +336,28 @@ def upload_attachment():
         
         if not result['success']:
             return jsonify({
+                'success': False,
                 'error': result['error'],
                 'message': result['message'],
                 'details': result.get('details', {})
             }), 400
         
         return jsonify({
+            'success': True,
             'attachment_id': result['attachment_id'],
             'filename': result['filename'],
             'size_mb': result['size_mb'],
-            'expires_at': result['expires_at']
+            'expires_at': result['expires_at'],
+            'details': {}
         }), 200
         
     except Exception as e:
         logger.error(f"Email API upload error: {e}", exc_info=True)
         return jsonify({
+            'success': False,
             'error': 'internal_server_error',
-            'message': str(e)
+            'message': str(e),
+            'details': {}
         }), 500
 
 

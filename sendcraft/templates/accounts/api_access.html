@@ -82,22 +82,27 @@
                 {% if api_data.has_key %}
                 <!-- Exibir chave gerada (apenas uma vez) -->
                 {% if new_api_key %}
-                <div class="alert alert-warning" role="alert">
-                    <h6 class="alert-heading">
-                        <i class="bi bi-exclamation-triangle me-2"></i>
-                        Guarde Esta Chave Agora!
-                    </h6>
-                    <p class="mb-2">Esta chave não será mostrada novamente. Copie e guarde em local seguro.</p>
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <h5 class="alert-heading">✅ API Key Gerada com Sucesso!</h5>
+                    <p><strong>IMPORTANTE:</strong> Esta chave será mostrada apenas uma vez. Guarde-a em local seguro.</p>
+                    
                     <div class="input-group mb-3">
-                        <input type="text" 
-                               class="form-control font-monospace" 
-                               id="apiKeyDisplay" 
+                        <input type="text" class="form-control font-monospace" 
+                               id="newApiKey" 
                                value="{{ new_api_key }}" 
                                readonly>
-                        <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('apiKeyDisplay')">
-                            <i class="bi bi-clipboard me-1"></i>Copiar
+                        <button class="btn btn-outline-secondary" 
+                                type="button" 
+                                onclick="copyToClipboard('newApiKey')">
+                            <i class="bi bi-clipboard"></i> Copiar
                         </button>
                     </div>
+                    
+                    <small class="text-muted">
+                        Use esta chave no cabeçalho: <code>Authorization: Bearer {{ new_api_key }}</code>
+                    </small>
+                    
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
                 {% else %}
                 <!-- Exibir chave mascarada -->
@@ -255,14 +260,18 @@
 function copyToClipboard(elementId) {
     const element = document.getElementById(elementId);
     element.select();
-    element.setSelectionRange(0, 99999); // Para mobile
+    element.setSelectionRange(0, 99999);
+    document.execCommand('copy');
     
-    navigator.clipboard.writeText(element.value).then(function() {
-        showToast('API key copiada para clipboard!', 'success');
-    }, function(err) {
-        console.error('Erro ao copiar:', err);
-        showToast('Erro ao copiar', 'danger');
-    });
+    const btn = element.nextElementSibling;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="bi bi-check"></i> Copiado!';
+    btn.classList.replace('btn-outline-secondary', 'btn-success');
+    
+    setTimeout(() => {
+        btn.innerHTML = originalText;
+        btn.classList.replace('btn-success', 'btn-outline-secondary');
+    }, 2000);
 }
 
 function showToast(message, type = 'success') {

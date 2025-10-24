@@ -9,7 +9,7 @@ from typing import Dict, Any
 from ..models import Domain, EmailAccount, EmailTemplate, EmailLog
 from ..models.log import EmailStatus
 from ..services.smtp_service import SMTPService
-from ..services.auth_service import require_api_key
+from ..services.auth_service import require_account_api_key
 from ..extensions import db
 from ..utils.logging import get_logger
 
@@ -39,7 +39,7 @@ def health_check():
 
 @external_api_bp.route('/send/direct', methods=['POST'])
 @cross_origin()
-@require_api_key
+@require_account_api_key
 def send_direct_email():
     """
     Send direct email without template.
@@ -185,7 +185,7 @@ def send_direct_email():
 
 @external_api_bp.route('/send/template', methods=['POST'])
 @cross_origin()
-@require_api_key
+@require_account_api_key
 def send_template_email():
     """
     Send email using template.
@@ -372,7 +372,7 @@ def send_template_email():
 
 @external_api_bp.route('/accounts/<domain>', methods=['GET'])
 @cross_origin()
-@require_api_key
+@require_account_api_key
 def list_domain_accounts(domain: str):
     """
     List accounts for a domain.
@@ -422,7 +422,7 @@ def list_domain_accounts(domain: str):
 
 @external_api_bp.route('/templates/<domain>', methods=['GET'])
 @cross_origin()
-@require_api_key
+@require_account_api_key
 def list_domain_templates(domain: str):
     """
     List templates for a domain.

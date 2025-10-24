@@ -810,11 +810,20 @@ def api_domain_toggle(domain_id):
         return jsonify({
             'success': True,
             'message': f'Domínio {"ativado" if domain.is_active else "desativado"} com sucesso',
-            'is_active': domain.is_active
+            'details': {
+                'domain_id': domain.id,
+                'domain_name': domain.name,
+                'is_active': domain.is_active
+            }
         })
     except Exception as e:
         logger.error(f"Error toggling domain: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': 'internal_server_error',
+            'message': str(e),
+            'details': {}
+        }), 500
 
 
 @web_bp.route('/api/accounts/<int:account_id>/test-smtp', methods=['POST'])
