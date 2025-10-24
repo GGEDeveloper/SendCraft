@@ -157,6 +157,11 @@
                                         title="Testar SMTP">
                                     <i class="bi bi-wifi"></i>
                                 </button>
+                                <a href="{{ url_for('web.accounts_api_access', account_id=account.id) }}" 
+                                   class="btn btn-outline-warning"
+                                   title="API Keys">
+                                    <i class="bi bi-key"></i>
+                                </a>
                                 <a href="{{ url_for('web.accounts_edit', account_id=account.id) }}" 
                                    class="btn btn-outline-primary"
                                    title="Editar">
