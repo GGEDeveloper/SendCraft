@@ -1,6 +1,6 @@
 """
 Configuração de logging para SendCraft.
-Fornece logging estruturado e configurável.
+Fornece logging estruturado e configurável com suporte serverless.
 """
 import logging
 import logging.handlers
@@ -28,6 +28,7 @@ class RequestFormatter(logging.Formatter):
 def setup_logging(app: Flask) -> None:
     """
     Configura sistema de logging para a aplicação.
+    Compatível com ambientes serverless (Vercel, AWS Lambda).
     
     Args:
         app: Instância da aplicação Flask
@@ -44,29 +45,47 @@ def setup_logging(app: Flask) -> None:
         '[%(asctime)s] %(levelname)s in %(module)s: %(message)s'
     )
     
-    # Handler para console
+    # Handler para console (SEMPRE disponível em todos os ambientes)
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
     app.logger.addHandler(console_handler)
     
-    # Handler para arquivo (se configurado)
+    # ✅ CORREÇÃO SERVERLESS: Handler para arquivo apenas se seguro
     log_file = app.config.get('LOG_FILE')
-    if log_file and not app.config.get('TESTING'):
-        # Criar diretório se não existir
-        log_dir = os.path.dirname(log_file)
-        if log_dir and not os.path.exists(log_dir):
-            os.makedirs(log_dir)
-        
-        # Rotating file handler (max 10MB, mantém 10 backups)
-        file_handler = logging.handlers.RotatingFileHandler(
-            log_file,
-            maxBytes=10 * 1024 * 1024,  # 10MB
-            backupCount=10
-        )
-        file_handler.setFormatter(formatter)
-        app.logger.addHandler(file_handler)
     
-    app.logger.info('SendCraft logging configured')
+    # Detectar ambiente serverless
+    is_serverless = (
+        os.environ.get('VERCEL') or 
+        os.environ.get('AWS_LAMBDA_FUNCTION_NAME') or
+        os.environ.get('GOOGLE_CLOUD_PROJECT') or
+        '/var/task' in os.getcwd()  # Vercel/Lambda path detection
+    )
+    
+    if log_file and not app.config.get('TESTING') and not is_serverless:
+        try:
+            # Criar diretório se não existir
+            log_dir = os.path.dirname(log_file)
+            if log_dir and not os.path.exists(log_dir):
+                os.makedirs(log_dir)
+            
+            # Rotating file handler (max 10MB, mantém 10 backups)
+            file_handler = logging.handlers.RotatingFileHandler(
+                log_file,
+                maxBytes=10 * 1024 * 1024,  # 10MB
+                backupCount=10
+            )
+            file_handler.setFormatter(formatter)
+            app.logger.addHandler(file_handler)
+            app.logger.info(f'File logging enabled: {log_file}')
+            
+        except (OSError, PermissionError) as e:
+            # Graceful fallback para ambientes read-only
+            app.logger.warning(f'File logging disabled (read-only filesystem): {e}')
+    
+    elif is_serverless:
+        app.logger.info('Serverless environment detected - using console logging only')
+    
+    app.logger.info('SendCraft logging configured successfully')
 
 
 def get_logger(name: Optional[str] = None) -> logging.Logger:
