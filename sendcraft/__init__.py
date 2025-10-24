@@ -113,21 +113,29 @@ def init_extensions(app: Flask) -> None:
 
 def register_blueprints(app: Flask) -> None:
     """Registra blueprints da aplicação"""
-    from .api.v1 import api_v1_bp
+    # ❌ REMOVER import conflitante
+    # from .api.v1 import api_v1_bp  # ← COMENTAR/REMOVER ESTA LINHA
+    
     from .routes.web import web_bp
     from .routes.external_api import external_api_bp
     from .routes.api_docs import docs_bp
-    from .routes.email_api import email_api_bp  # Phase 15: Email Sending API
+    from .routes.email_api import email_api_bp  # ✅ E-commerce API v1 (account auth)
     
-    app.register_blueprint(api_v1_bp, url_prefix='/api/v1')
-    app.register_blueprint(web_bp)
-    app.register_blueprint(email_api_bp)  # Phase 15: Email Sending API (register first)
-    app.register_blueprint(external_api_bp)  # External API for AliTools integration
-    app.register_blueprint(docs_bp)  # API documentation
+    # ✅ REGISTRAR blueprints (ordem importante)
+    app.register_blueprint(web_bp)                    # Interface web
+    app.register_blueprint(email_api_bp)              # ✅ API v1 E-commerce (account auth)
+    app.register_blueprint(external_api_bp)           # APIs externas
+    app.register_blueprint(docs_bp)                   # Documentação
+    
+    # ❌ REMOVER registro conflitante  
+    # app.register_blueprint(api_v1_bp, url_prefix='/api/v1')  # ← COMENTAR/REMOVER
     
     # Error handlers
     from .api.errors import register_error_handlers
     register_error_handlers(app)
+    
+    app.logger.info("Blueprints registered: web, email_api_v1, external_api, docs")
+    app.logger.info("✅ Route conflicts resolved - using account-based auth only")
 
 
 def register_commands(app: Flask) -> None:

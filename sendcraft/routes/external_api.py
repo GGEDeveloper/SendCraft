@@ -19,24 +19,6 @@ logger = get_logger(__name__)
 external_api_bp = Blueprint('external_api', __name__, url_prefix='/api/v1')
 
 
-@external_api_bp.route('/health', methods=['GET'])
-@cross_origin()
-def health_check():
-    """
-    Health check endpoint for external API.
-    
-    GET /api/v1/health
-    
-    Returns:
-        200: System is healthy
-    """
-    return jsonify({
-        'status': 'healthy',
-        'service': 'SendCraft External API',
-        'version': '1.0.0'
-    }), 200
-
-
 @external_api_bp.route('/send/direct', methods=['POST'])
 @cross_origin()
 @require_account_api_key

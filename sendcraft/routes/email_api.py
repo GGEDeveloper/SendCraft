@@ -284,6 +284,39 @@ def get_send_status(message_id: str):
         }), 500
 
 
+@email_api_bp.route('/health', methods=['GET'])
+@cross_origin()
+def health_check():
+    """
+    Health check endpoint.
+    
+    GET /api/v1/health
+    
+    Returns:
+        200: Service is healthy
+    """
+    try:
+        return jsonify({
+            'success': True,
+            'status': 'healthy',
+            'service': 'SendCraft Email API v1',
+            'version': '1.0.0',
+            'timestamp': datetime.utcnow().isoformat() + 'Z',
+            'endpoints': {
+                'send': 'POST /api/v1/send',
+                'status': 'GET /api/v1/send/{id}/status',
+                'upload': 'POST /api/v1/attachments/upload'
+            }
+        }), 200
+    except Exception as e:
+        logger.error(f"Health check error: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'status': 'unhealthy',
+            'error': str(e)
+        }), 500
+
+
 @email_api_bp.route('/attachments/upload', methods=['POST'])
 @cross_origin()
 @require_account_api_key

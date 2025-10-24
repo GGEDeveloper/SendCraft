@@ -1,0 +1,110 @@
+{
+  "fix_summary": {
+    "issue": "Blueprint Route Conflicts - SendCraft API v1",
+    "status": "✅ RESOLVED",
+    "timestamp": "2025-10-24T13:13:11Z",
+    "fix_duration": "15 minutes"
+  },
+  "problem_analysis": {
+    "root_cause": "Two blueprints registered with same route /api/v1/send",
+    "conflicting_blueprints": [
+      {
+        "name": "api_v1_bp",
+        "file": "sendcraft/api/v1/send.py",
+        "route": "POST /api/v1/send",
+        "auth": "@require_api_key (config file)",
+        "usage": "Template-based emails",
+        "registered": "First in __init__.py"
+      },
+      {
+        "name": "email_api_bp", 
+        "file": "sendcraft/routes/email_api.py",
+        "route": "POST /api/v1/send",
+        "auth": "@require_account_api_key (database)",
+        "usage": "E-commerce integration",
+        "registered": "Second in __init__.py (overwrote!)"
+      }
+    ],
+    "impact": "API key generated via UI (database) not working because final route used config file auth"
+  },
+  "solution_applied": {
+    "strategy": "Consolidate to Account-Based Authentication",
+    "changes": [
+      {
+        "file": "sendcraft/__init__.py",
+        "action": "Removed api_v1_bp import and registration",
+        "reason": "Eliminate route conflict"
+      },
+      {
+        "file": "sendcraft/routes/email_api.py", 
+        "action": "Added /api/v1/health endpoint",
+        "reason": "Replace health check from removed api_v1_bp"
+      },
+      {
+        "file": "sendcraft/routes/external_api.py",
+        "action": "Removed duplicate /api/v1/health endpoint", 
+        "reason": "Avoid health check conflict"
+      }
+    ],
+    "architecture_decision": "Use email_api_bp with account-based auth for e-commerce focus"
+  },
+  "verification_tests": {
+    "route_conflicts": {
+      "test": "Check for duplicate routes in Flask app",
+      "result": "✅ No duplicate routes - conflicts resolved!",
+      "total_routes": 8
+    },
+    "api_authentication": {
+      "test": "POST /api/v1/send with account API key",
+      "api_key": "SC_VoEG-2BEUD3auhjpv6pitiJW7x8VrHCfpIaw5i3fmhBudS6o-yw30jceOLdi0LOn",
+      "result": "✅ HTTP 200 - Email sent successfully",
+      "message_id": "MSG-000016",
+      "recipient": "mmelo.deb@gmail.com",
+      "status": "sent"
+    },
+    "status_tracking": {
+      "test": "GET /api/v1/send/MSG-000016/status",
+      "result": "✅ HTTP 200 - Status retrieved successfully",
+      "status": "sent",
+      "sent_at": "2025-10-24T13:13:05Z"
+    },
+    "health_check": {
+      "test": "GET /api/v1/health",
+      "result": "✅ HTTP 200 - Service healthy",
+      "service": "SendCraft Email API v1",
+      "version": "1.0.0"
+    }
+  },
+  "final_architecture": {
+    "api_endpoints": [
+      "POST /api/v1/send - Send email (account auth)",
+      "GET /api/v1/send/{id}/status - Email status",
+      "POST /api/v1/attachments/upload - Upload attachments", 
+      "GET /api/v1/health - Health check"
+    ],
+    "authentication": "Bearer SC_...key...via...UI (account-based)",
+    "account": "geral@artnshine.pt → mail.artnshine.pt:465",
+    "blueprints_registered": [
+      "web_bp - Interface web",
+      "email_api_bp - API v1 E-commerce (account auth)",
+      "external_api_bp - APIs externas", 
+      "docs_bp - Documentação"
+    ]
+  },
+  "e_commerce_integration": {
+    "ready": true,
+    "example_usage": {
+      "javascript": "const apiKey = 'SC_VoEG-2BEUD3auhjpv6pitiJW7x8VrHCfpIaw5i3fmhBudS6o-yw30jceOLdi0LOn'; fetch('https://sendcraft.vercel.app/api/v1/send', { method: 'POST', headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ to: ['customer@email.com'], subject: 'Confirmação de Encomenda', html: '<h1>Obrigado pela sua compra!</h1>' }) });"
+    },
+    "deployment_ready": true
+  },
+  "production_readiness": {
+    "blueprint_conflicts": "✅ RESOLVED",
+    "api_authentication": "✅ WORKING", 
+    "email_sending": "✅ FUNCTIONAL",
+    "status_tracking": "✅ WORKING",
+    "health_monitoring": "✅ WORKING",
+    "e_commerce_ready": "✅ READY",
+    "vercel_deployment": "✅ READY"
+  }
+}
