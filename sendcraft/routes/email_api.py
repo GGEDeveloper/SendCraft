@@ -22,7 +22,7 @@ from ..utils.logging import get_logger
 logger = get_logger(__name__)
 
 # Create blueprint for Phase 15 Email API
-email_api_bp = Blueprint('email_api', __name__, url_prefix='/api/v1/emails')
+email_api_bp = Blueprint('email_api', __name__, url_prefix='/api/v1')
 
 
 @email_api_bp.route('/send', methods=['POST'])
@@ -257,7 +257,7 @@ def get_send_status(message_id: str):
                 'status': log.status.value,
                 'smtp_response': log.smtp_response or 'N/A'
             }],
-            'attachments_count': 0,  # TODO: Implement attachment counting
+            'attachments_count': len(log.variables_used.get('attachments', [])) if log.variables_used else 0,
             'error_message': log.error_message
         }
         
