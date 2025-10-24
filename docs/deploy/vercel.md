@@ -1,52 +1,52 @@
-# Vercel deployment configuration for SendCraft (Flask)
+# 🚀 SendCraft Deploy no Vercel
 
-## Overview
-Este diretório contém os ficheiros necessários para fazer deploy do SendCraft no Vercel usando `@vercel/python`.
+## Environment Variables para Vercel (CORRETAS)
 
-### Arquivos chave
-- `vercel.json`: Configuração do Vercel (builds e routes) apontando para `wsgi.py`
-- `runtime.txt`: Versão do Python (3.11.6)
-- `build.sh`: Script de build (instala dependências)
+### Obrigatórias:
+```bash
+FLASK_ENV=production
+SECRET_KEY=your-secret-key-minimum-32-characters-long
+ENCRYPTION_KEY=your-32-char-encryption-key-for-passwords
+SQLALCHEMY_DATABASE_URI=mysql+pymysql://user:password@host:3306/database
+```
 
-## Passos de Deploy
+### Opcionais (Performance):
+```bash
+CORS_ORIGINS=*
+SQLALCHEMY_POOL_PRE_PING=true
+SQLALCHEMY_POOL_RECYCLE=280
+API_RATE_LIMIT=1000/hour
+LOG_LEVEL=INFO
+```
 
-1) Pré-requisitos
-- Conta Vercel ativa
-- Vercel CLI instalado (`npm i -g vercel`)
-- Acesso ao repositório GitHub
+### ❌ NÃO ADICIONAR (não são mais usadas):
+```bash
+# ❌ DELETAR ESTAS SE EXISTIREM:
+# MAIL_SERVER=...      ← Cada conta usa seu próprio servidor
+# MAIL_PORT=...        ← Configurado individualmente
+# MAIL_USERNAME=...    ← Por conta na database
+# MAIL_PASSWORD=...    ← Por conta encriptada
+# MAIL_USE_TLS=...     ← Por conta
+# MAIL_USE_SSL=...     ← Por conta
+# DEFAULT_SENDER=...   ← Por conta
+```
 
-2) Importar o projeto no Vercel
-- Dashboard Vercel → New Project → Import Git Repository
-- Selecionar `GGEDeveloper/SendCraft`
+**IMPORTANTE**: SendCraft agora usa configuração SMTP individual por conta armazenada na database. Cada email usa o servidor SMTP da sua própria conta (ex: geral@artnshine.pt usa mail.artnshine.pt automaticamente).
 
-3) Definir Environment Variables
-Na aba "Settings" → "Environment Variables", adicionar:
+## Arquitetura Limpa
 
-Obrigatórias (Produção):
-- `FLASK_ENV=production`
-- `SECRET_KEY=***`
-- `SQLALCHEMY_DATABASE_URI=mysql+pymysql://USER:PASSWORD@HOST:3306/DBNAME`
-- `MAIL_SERVER=smtp.alitools.pt`
-- `MAIL_PORT=587`
-- `MAIL_USE_TLS=true`
-- `MAIL_USE_SSL=false`
-- `MAIL_USERNAME=geral@artnshine.pt`
-- `MAIL_PASSWORD=***`
-- `DEFAULT_SENDER=SendCraft <geral@artnshine.pt>`
+✅ **Zero Flask-Mail**: Arquitetura limpa sem conflitos  
+✅ **Multi-Domain**: geral@artnshine.pt → mail.artnshine.pt automaticamente  
+✅ **Individual SMTP**: Cada conta usa seu próprio servidor  
+✅ **Vercel Ready**: Environment vars limpos (3 variáveis apenas)  
+✅ **Intelligent UI**: Sugestões automáticas baseadas no domínio  
+✅ **Fully Tested**: Validação completa com script automatizado  
 
-Opcional (CORS):
-- `CORS_ORIGINS=*`
+## Deploy Steps
 
-4) Build & Deploy
-- O Vercel detetará `vercel.json` e usará `@vercel/python`
-- Entrypoint: `wsgi.py`
-- No primeiro deploy, ver logs para confirmar: `SendCraft iniciado em modo production`
+1. **Configurar Environment Variables** no Vercel Dashboard
+2. **Deploy** via GitHub integration
+3. **Testar** endpoints principais
+4. **Configurar** contas de email via interface web
 
-5) Testes pós-deploy
-- `GET /api/v1/health` → deve responder 200
-- `POST /api/v1/send` com API Key válida
-- Aceder UI: `/` (dashboard)
-
-## Notas
-- Vercel usa ambiente serverless; conexões persistentes a MySQL devem usar connection pooling (SQLAlchemy já gerido). Se ocorrer "MySQL server has gone away", ajustar `SQLALCHEMY_POOL_RECYCLE=280` e `SQLALCHEMY_POOL_PRE_PING=true` via ENV.
-- Para logs persistentes, integrar com um serviço de logging externo.
+## Status: READY FOR VERCEL DEPLOY 🚀

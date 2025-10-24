@@ -101,7 +101,7 @@ def account_new():
             domain_id = request.form.get('domain_id', type=int)
             local_part = request.form.get('local_part', '').strip()
             display_name = request.form.get('display_name', '').strip()
-            smtp_server = request.form.get('smtp_server', 'smtp.antispamcloud.com').strip()
+            smtp_server = request.form.get('smtp_server', '').strip()
             smtp_port = request.form.get('smtp_port', 587, type=int)
             smtp_username = request.form.get('smtp_username', '').strip()
             smtp_password = request.form.get('smtp_password', '').strip()
@@ -168,7 +168,7 @@ def account_edit(account_id):
     if request.method == 'POST':
         try:
             account.display_name = request.form.get('display_name', '').strip()
-            account.smtp_server = request.form.get('smtp_server', 'smtp.antispamcloud.com').strip()
+            account.smtp_server = request.form.get('smtp_server', '').strip()
             account.smtp_port = request.form.get('smtp_port', 587, type=int)
             account.smtp_username = request.form.get('smtp_username', '').strip() or account.email_address
             account.use_tls = request.form.get('use_tls') == 'on'

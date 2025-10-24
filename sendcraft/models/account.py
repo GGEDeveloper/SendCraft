@@ -45,7 +45,7 @@ class EmailAccount(BaseModel, TimestampMixin):
     display_name = Column(String(200))
     
     # SMTP configuration
-    smtp_server = Column(String(200), nullable=False, default='smtp.antispamcloud.com')
+    smtp_server = Column(String(200), nullable=False)
     smtp_port = Column(Integer, nullable=False, default=587)
     smtp_username = Column(String(200))
     smtp_password = Column(Text)  # Encrypted
@@ -57,7 +57,7 @@ class EmailAccount(BaseModel, TimestampMixin):
     daily_limit = Column(Integer, default=1000, nullable=False)
     monthly_limit = Column(Integer, default=20000, nullable=False)
     # IMAP Configuration
-    imap_server = Column(String(200), default='mail.alitools.pt')
+    imap_server = Column(String(200))
     imap_port = Column(Integer, default=993)
     imap_use_ssl = Column(Boolean, default=True)
     imap_use_tls = Column(Boolean, default=False)
@@ -81,15 +81,22 @@ class EmailAccount(BaseModel, TimestampMixin):
     def __init__(self, **kwargs):
         """
         Inicializa conta de email.
-        Auto-gera email_address se não fornecido.
+        Auto-gera email_address e configura SMTP baseado no domínio.
         """
         # Auto-generate email_address from local_part and domain
         if 'local_part' in kwargs and 'domain_id' in kwargs and 'email_address' not in kwargs:
-            # Import aqui para evitar circular import
             from .domain import Domain
             domain = Domain.query.get(kwargs['domain_id'])
             if domain:
                 kwargs['email_address'] = f"{kwargs['local_part']}@{domain.name}"
+                
+                # Auto-configure SMTP server se não fornecido
+                if 'smtp_server' not in kwargs:
+                    kwargs['smtp_server'] = f'mail.{domain.name}'
+                
+                # Auto-configure IMAP server se não fornecido  
+                if 'imap_server' not in kwargs:
+                    kwargs['imap_server'] = f'mail.{domain.name}'
         
         # Set default smtp_username to email_address if not provided
         if 'smtp_username' not in kwargs and 'email_address' in kwargs:

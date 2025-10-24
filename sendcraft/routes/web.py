@@ -332,6 +332,10 @@ def accounts_new():
             if not account_data['smtp_password']:
                 raise ValueError('Password SMTP é obrigatória')
             
+            # Primeiro obter o domínio para default IMAP
+            domain = Domain.query.get(account_data['domain_id'])
+            default_imap = f'mail.{domain.name}' if domain else 'mail.localhost'
+            
             # Criar conta com password encriptada
             account = EmailAccount(
                 domain_id=account_data['domain_id'],
@@ -346,7 +350,7 @@ def accounts_new():
                 monthly_limit=account_data['monthly_limit'],
                 is_active=account_data['is_active'],
                 # IMAP Configuration
-                imap_server=request.form.get('imap_server', '').strip() or 'mail.alitools.pt',
+                imap_server=request.form.get('imap_server', '').strip() or default_imap,
                 imap_port=request.form.get('imap_port', 993, type=int),
                 imap_use_ssl=request.form.get('imap_use_ssl') == 'on',
                 imap_use_tls=request.form.get('imap_use_tls') == 'on'
@@ -395,7 +399,9 @@ def accounts_edit(account_id):
             account.is_active = request.form.get('is_active') == 'on'
             
             # Atualizar configurações IMAP
-            account.imap_server = request.form.get('imap_server', '').strip() or 'mail.alitools.pt'
+            # Usar servidor baseado no domínio se não fornecido
+            default_imap = f'mail.{account.domain.name}' if account.domain else 'mail.localhost'
+            account.imap_server = request.form.get('imap_server', '').strip() or default_imap
             account.imap_port = request.form.get('imap_port', 993, type=int)
             account.imap_use_ssl = request.form.get('imap_use_ssl') == 'on'
             account.imap_use_tls = request.form.get('imap_use_tls') == 'on'

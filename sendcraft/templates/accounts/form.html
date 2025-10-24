@@ -38,6 +38,17 @@
     <div class="col-lg-8">
         <form method="POST" id="accountForm">
             
+            <!-- Informação sobre configuração por conta -->
+            <div class="row mb-3">
+                <div class="col-12">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Configuração por Conta:</strong> Cada conta de email usa suas próprias configurações SMTP/IMAP.
+                        O servidor é específico do domínio (ex: mail.artnshine.pt para contas @artnshine.pt).
+                    </div>
+                </div>
+            </div>
+            
             <!-- Informações Básicas -->
             <div class="card mb-3">
                 <div class="card-header">
@@ -93,6 +104,10 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Áreas para sugestões -->
+            <div id="config-suggestion"></div>
+            <div id="email-preview"></div>
             
             <!-- Configurações SMTP -->
             <div class="card mb-3">
@@ -249,7 +264,7 @@
                                    class="form-control" 
                                    id="imap_server" 
                                    name="imap_server" 
-                                   value="{{ account.imap_server if account else 'mail.alitools.pt' }}"
+                                   value="{{ account.imap_server if account else '' }}"
                                    placeholder="mail.exemplo.com">
                         </div>
                         
@@ -503,6 +518,64 @@ async function testIMAP() {
     }
 }
 {% endif %}
+
+// Auto-sugerir configurações baseadas no domínio
+$('#domain_id').change(function() {
+    const domainId = $(this).val();
+    const domainName = $(this).find('option:selected').text();
+    
+    if (domainName && domainName !== 'Selecionar domínio') {
+        // Sugerir servidor SMTP baseado no domínio
+        const suggestedSmtp = `mail.${domainName}`;
+        $('#smtp_server').val(suggestedSmtp);
+        $('#imap_server').val(suggestedSmtp);
+        
+        // Configurações inteligentes baseadas na extensão
+        if (domainName.endsWith('.pt') || domainName.endsWith('.com.pt')) {
+            // cPanel português típico
+            $('#smtp_port').val(465);
+            $('#use_ssl').prop('checked', true);
+            $('#use_tls').prop('checked', false);
+            $('#imap_port').val(993);
+            $('#imap_use_ssl').prop('checked', true);
+        } else {
+            // Configuração internacional
+            $('#smtp_port').val(587);
+            $('#use_ssl').prop('checked', false);
+            $('#use_tls').prop('checked', true);
+            $('#imap_port').val(993);
+            $('#imap_use_ssl').prop('checked', true);
+        }
+        
+        // Mostrar sugestão
+        $('#config-suggestion').html(`
+            <div class="alert alert-info">
+                <i class="bi bi-lightbulb"></i>
+                <strong>Configuração sugerida para ${domainName}:</strong><br>
+                SMTP: ${suggestedSmtp}:${$('#smtp_port').val()} (${$('#use_ssl').is(':checked') ? 'SSL' : 'TLS'})<br>
+                IMAP: ${suggestedSmtp}:${$('#imap_port').val()} (SSL)
+            </div>
+        `);
+    }
+});
+
+// Auto-preencher username com email address
+$('#local_part, #domain_id').change(function() {
+    const localPart = $('#local_part').val();
+    const domainName = $('#domain_id option:selected').text();
+    
+    if (localPart && domainName && domainName !== 'Selecionar domínio') {
+        const emailAddress = `${localPart}@${domainName}`;
+        $('#smtp_username').val(emailAddress);
+        
+        $('#email-preview').html(`
+            <div class="alert alert-success">
+                <i class="bi bi-envelope"></i>
+                Email address: <strong>${emailAddress}</strong>
+            </div>
+        `);
+    }
+});
 
 // Toast function
 function showToast(message, type = 'success') {

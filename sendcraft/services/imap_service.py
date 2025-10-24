@@ -20,7 +20,7 @@ logger = get_logger(__name__)
 
 
 class IMAPService:
-    """Serviço completo para operações IMAP com mail.alitools.pt."""
+    """Serviço completo para operações IMAP."""
     
     def __init__(self, account: EmailAccount = None):
         """
@@ -57,7 +57,7 @@ class IMAPService:
                 logger.error("No IMAP configuration provided")
                 return False
             
-            server = config.get('server', 'mail.alitools.pt')
+            server = config.get('server', 'mail.localhost')
             port = config.get('port', 993)
             username = config.get('username')
             password = config.get('password')

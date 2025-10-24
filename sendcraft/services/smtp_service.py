@@ -29,6 +29,64 @@ class SMTPService:
         self.encryption_key = encryption_key
         self.cipher = AESCipher(encryption_key)
     
+    def get_smtp_config_with_fallback(self, account: EmailAccount) -> Dict[str, Any]:
+        """Obter configuração SMTP com fallback inteligente."""
+        config = account.get_smtp_config(self.encryption_key)
+        
+        # Se servidor não está configurado, usar baseado no domínio
+        if not config.get('server'):
+            config['server'] = f'mail.{account.domain.name}'
+            logger.info(f"Auto-configured SMTP server: {config['server']} for {account.email_address}")
+        
+        # Configurações padrão inteligentes baseadas no domínio
+        if account.domain.name.endswith('.pt'):
+            # cPanel português típico
+            config.setdefault('port', 465)
+            config.setdefault('use_ssl', True)
+            config.setdefault('use_tls', False)
+        else:
+            # Configuração internacional típica
+            config.setdefault('port', 587)
+            config.setdefault('use_ssl', False)
+            config.setdefault('use_tls', True)
+        
+        return config
+
+    def test_connection_with_fallback(self, account: EmailAccount) -> Tuple[bool, str, Dict]:
+        """Testar conexão SMTP com múltiplas configurações de fallback."""
+        base_config = self.get_smtp_config_with_fallback(account)
+        
+        # Configurações para testar em ordem
+        fallback_configs = [
+            base_config,  # Configuração principal
+            {**base_config, 'port': 465, 'use_ssl': True, 'use_tls': False},   # SSL
+            {**base_config, 'port': 587, 'use_ssl': False, 'use_tls': True},   # STARTTLS
+            {**base_config, 'port': 25, 'use_ssl': False, 'use_tls': False},   # Plain
+        ]
+        
+        last_error = "Nenhuma configuração SMTP funcionou"
+        
+        for i, test_config in enumerate(fallback_configs):
+            try:
+                logger.info(f"Testing SMTP config {i+1}/{len(fallback_configs)}: {test_config['server']}:{test_config['port']}")
+                
+                with self._create_smtp_connection(test_config) as server:
+                    success_message = f"Conexão SMTP bem-sucedida (config {i+1})"
+                    logger.info(f"SMTP test successful for {account.email_address} with config {i+1}")
+                    
+                    # Se não é a config principal e funcionou, sugerir atualização
+                    if i > 0:
+                        logger.info(f"Consider updating account {account.email_address} SMTP config to: port={test_config['port']}, ssl={test_config['use_ssl']}, tls={test_config['use_tls']}")
+                    
+                    return True, success_message, test_config
+                    
+            except Exception as e:
+                last_error = str(e)
+                logger.debug(f"SMTP config {i+1} failed for {account.email_address}: {e}")
+                continue
+        
+        return False, last_error, {}
+
     def test_connection(self, account: EmailAccount) -> Tuple[bool, str]:
         """
         Testa conexão SMTP com uma conta.
@@ -40,7 +98,7 @@ class SMTPService:
             Tuple (success, message)
         """
         try:
-            config = account.get_smtp_config(self.encryption_key)
+            config = self.get_smtp_config_with_fallback(account)
             
             with self._create_smtp_connection(config) as server:
                 # Se chegou aqui, a conexão foi bem-sucedida
@@ -99,7 +157,7 @@ class SMTPService:
             Tuple (success, message, message_id)
         """
         try:
-            config = account.get_smtp_config(self.encryption_key)
+            config = self.get_smtp_config_with_fallback(account)
             
             # Criar mensagem
             msg = MIMEMultipart('alternative')

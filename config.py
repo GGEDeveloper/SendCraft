@@ -10,21 +10,27 @@ class BaseConfig:
     """Configuração base comum a todos os ambientes"""
     
     # Flask Core
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'sendcraft-dev-key-change-in-production'
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'sendcraft-production-key-change-me-32-chars'
+    ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY') or 'sendcraft-encryption-key-change-32c'
     
-    # SendCraft Core
+    # SendCraft Core  
     DEFAULT_FROM_NAME = os.environ.get('DEFAULT_FROM_NAME') or 'SendCraft Email Manager'
-    ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY') or 'sendcraft-encryption-32-chars-key!!'
+    
+    # ❌ REMOVER TODOS ESTES (não são mais usados):
+    # DEFAULT_SMTP_SERVER = ...
+    # DEFAULT_SMTP_PORT = ...
+    # MAIL_SERVER = ...
+    # MAIL_PORT = ...
+    # MAIL_USE_TLS = ...
+    # MAIL_USE_SSL = ...
+    # MAIL_USERNAME = ...
+    # MAIL_PASSWORD = ...
+    # DEFAULT_SENDER = ...
     
     # API Configuration
     API_RATE_LIMIT = os.environ.get('API_RATE_LIMIT') or '1000/hour'
     API_KEY_REQUIRED = os.environ.get('API_KEY_REQUIRED', 'false').lower() == 'true'
     API_KEYS = {}  # Populated from instance config
-    
-    # SMTP Defaults
-    DEFAULT_SMTP_SERVER = os.environ.get('DEFAULT_SMTP_SERVER') or 'smtp.antispamcloud.com'
-    DEFAULT_SMTP_PORT = int(os.environ.get('DEFAULT_SMTP_PORT') or 587)
-    DEFAULT_USE_TLS = os.environ.get('DEFAULT_USE_TLS', 'true').lower() == 'true'
     
     # Database Base Settings
     SQLALCHEMY_TRACK_MODIFICATIONS = False
