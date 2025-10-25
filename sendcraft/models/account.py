@@ -1,9 +1,10 @@
 """Modelo de Conta de Email para SendCraft."""
-from sqlalchemy import Column, String, Integer, Boolean, Text, ForeignKey
+from sqlalchemy import Column, String, Integer, Boolean, Text, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.hybrid import hybrid_property
 from typing import Optional, Dict, Any, List
 from email_validator import validate_email, EmailNotValidError
+from datetime import datetime
 
 from .base import BaseModel, TimestampMixin
 from ..utils.crypto import AESCipher
@@ -55,9 +56,18 @@ class EmailAccount(BaseModel, TimestampMixin):
     is_active = Column(Boolean, default=True, nullable=False)
     daily_limit = Column(Integer, default=1000, nullable=False)
     monthly_limit = Column(Integer, default=20000, nullable=False)
+    # IMAP Configuration
+    imap_server = Column(String(200), default='mail.alitools.pt')
+    imap_port = Column(Integer, default=993)
+    imap_use_ssl = Column(Boolean, default=True)
+    imap_use_tls = Column(Boolean, default=False)
+    last_sync = Column(DateTime)
+    auto_sync_enabled = Column(Boolean, default=True)
+    sync_interval_minutes = Column(Integer, default=5)
     
     # Relationships
     logs = relationship('EmailLog', back_populates='account', lazy='dynamic', cascade='all, delete-orphan')
+    inbox_emails = relationship('EmailInbox', back_populates='account', lazy='dynamic', cascade='all, delete-orphan')
     
     def __repr__(self) -> str:
         return f'<EmailAccount {self.email_address}>'
@@ -188,6 +198,25 @@ class EmailAccount(BaseModel, TimestampMixin):
             'from_name': self.display_name or self.local_part
         }
     
+    def get_imap_config(self, encryption_key: str) -> Dict[str, Any]:
+        """
+        Retorna configuração IMAP para conexão.
+        
+        Args:
+            encryption_key: Chave para decriptar password
+            
+        Returns:
+            Dicionário com configuração IMAP
+        """
+        return {
+            'server': self.imap_server,
+            'port': self.imap_port,
+            'username': self.email_address,
+            'password': self.get_password(encryption_key),
+            'use_ssl': self.imap_use_ssl,
+            'use_tls': self.imap_use_tls
+        }
+    
     def count_emails_sent_today(self) -> int:
         """
         Conta emails enviados hoje.
@@ -242,6 +271,59 @@ class EmailAccount(BaseModel, TimestampMixin):
         
         return True, "Within limits"
     
+    def needs_sync(self) -> bool:
+        """
+        Verifica se a conta precisa de sincronização.
+        
+        Returns:
+            True se precisa sincronizar
+        """
+        if not self.auto_sync_enabled:
+            return False
+        
+        if not self.last_sync:
+            return True
+        
+        from datetime import datetime, timedelta
+        
+        time_since_sync = datetime.utcnow() - self.last_sync
+        sync_interval = timedelta(minutes=self.sync_interval_minutes)
+        
+        return time_since_sync >= sync_interval
+    
+    def update_last_sync(self, commit: bool = True) -> None:
+        """
+        Atualiza timestamp da última sincronização.
+        
+        Args:
+            commit: Se deve fazer commit
+        """
+        self.last_sync = datetime.utcnow()
+        if commit:
+            self.save()
+    
+    def count_inbox_emails(self, unread_only: bool = False) -> int:
+        """
+        Conta emails no inbox.
+        
+        Args:
+            unread_only: Se deve contar apenas não lidos
+            
+        Returns:
+            Número de emails no inbox
+        """
+        from .email_inbox import EmailInbox
+        
+        query = self.inbox_emails.filter(
+            EmailInbox.is_deleted == False,
+            EmailInbox.folder == 'INBOX'
+        )
+        
+        if unread_only:
+            query = query.filter(EmailInbox.is_read == False)
+        
+        return query.count()
+    
     def to_dict(self, include_relationships: bool = False) -> dict:
         """
         Converte modelo para dicionário.
@@ -257,9 +339,16 @@ class EmailAccount(BaseModel, TimestampMixin):
         # Não incluir password encriptada
         data.pop('smtp_password', None)
         
+        # Converter datetime para ISO format
+        if self.last_sync:
+            data['last_sync'] = self.last_sync.isoformat()
+        
         if include_relationships and self.domain:
             data['domain_name'] = self.domain.name
             data['emails_sent_today'] = self.count_emails_sent_today()
             data['emails_sent_this_month'] = self.count_emails_sent_this_month()
+            data['inbox_email_count'] = self.count_inbox_emails()
+            data['unread_email_count'] = self.count_inbox_emails(unread_only=True)
+            data['needs_sync'] = self.needs_sync()
         
         return data

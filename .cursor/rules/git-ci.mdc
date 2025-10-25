@@ -1,0 +1,10 @@
+---
+alwaysApply: true
+---
+Git e CI (System)
+
+Sem seeds, sem mocks, sem “improved services”.
+
+Pre-commit: abortar se grep identificar padrões de mock.
+
+Não executar migrações destrutivas sem validação explícita.

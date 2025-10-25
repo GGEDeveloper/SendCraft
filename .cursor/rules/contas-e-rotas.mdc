@@ -1,0 +1,10 @@
+---
+alwaysApply: true
+---
+Contas e rotas (System)
+
+Rota web deve apontar para geral@alitools.pt.
+
+encomendas@alitools.pt permanece inativa, não remover.
+
+Nunca hardcode “encomendas@” como primária.

@@ -6,7 +6,7 @@ import sys
 from flask import Flask
 from typing import Optional
 
-from .extensions import db, mail, cors
+from .extensions import db, mail, cors, migrate
 from .utils.logging import setup_logging
 
 
@@ -95,6 +95,7 @@ def init_extensions(app: Flask) -> None:
     """Inicializa extensões Flask"""
     db.init_app(app)
     mail.init_app(app)
+    migrate.init_app(app, db)
     cors.init_app(app, resources={
         r"/api/*": {
             "origins": "*",
@@ -130,13 +131,15 @@ def register_commands(app: Flask) -> None:
         init_db_command,
         create_admin_command,
         test_smtp_command,
-        clean_logs_command
+        clean_logs_command,
+        seed_imap_command
     )
     
     app.cli.add_command(init_db_command)
     app.cli.add_command(create_admin_command)
     app.cli.add_command(test_smtp_command)
     app.cli.add_command(clean_logs_command)
+    app.cli.add_command(seed_imap_command)
     
     # Adicionar comando seed-local-data se disponível
     try:

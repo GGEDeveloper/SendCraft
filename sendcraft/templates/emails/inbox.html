@@ -1,143 +1,314 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SendCraft - Email Inbox</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/email-client.css') }}" rel="stylesheet">
-</head>
-<body>
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="{{ url_for('dashboard') }}">
-                <i class="fas fa-envelope"></i> SendCraft
-            </a>
-            <div class="navbar-nav ms-auto">
-                <a class="nav-link" href="{{ url_for('dashboard') }}">
-                    <i class="fas fa-tachometer-alt"></i> Dashboard
-                </a>
-                <a class="nav-link active" href="{{ url_for('emails_inbox.inbox') }}">
-                    <i class="fas fa-inbox"></i> Inbox
-                </a>
+{% extends "base.html" %}
+
+{% block title %}Caixa de Entrada - {{ account.email_address }}{% endblock %}
+
+{% block extra_css %}
+<link href="{{ url_for('static', filename='css/email-client.css') }}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="email-client-container">
+    <!-- Header -->
+    <div class="email-client-header">
+        <div class="row align-items-center">
+            <div class="col">
+                <h1 class="h3 mb-0">
+                    <i class="bi bi-inbox"></i> Caixa de Entrada
+                    <small class="text-muted ms-2">{{ account.email_address }}</small>
+                </h1>
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-primary" id="syncEmailsBtn">
+                    <i class="bi bi-arrow-clockwise"></i> Sincronizar
+                </button>
             </div>
         </div>
-    </nav>
+    </div>
 
-    <!-- Main Content -->
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Sidebar -->
-            <div class="col-md-3 col-lg-2 sidebar">
-                <div class="sidebar-content">
-                    <div class="mailbox-list">
-                        <div class="mailbox-item active">
-                            <i class="fas fa-inbox"></i>
-                            <span>Inbox</span>
-                            <span class="badge bg-primary" id="inbox-count">0</span>
+    <!-- Three-Pane Layout -->
+    <div class="email-client-body">
+        <div class="email-panes">
+            <!-- Left Sidebar -->
+            <div class="email-sidebar" id="emailSidebar">
+                <!-- Account Info -->
+                <div class="sidebar-section">
+                    <div class="account-info">
+                        <div class="account-avatar">
+                            <i class="bi bi-person-circle"></i>
                         </div>
-                        <div class="mailbox-item">
-                            <i class="fas fa-paper-plane"></i>
-                            <span>Sent</span>
-                        </div>
-                        <div class="mailbox-item">
-                            <i class="fas fa-star"></i>
-                            <span>Starred</span>
-                        </div>
-                        <div class="mailbox-item">
-                            <i class="fas fa-trash"></i>
-                            <span>Trash</span>
+                        <div class="account-details">
+                            <div class="account-name">{{ account.display_name or account.local_part }}</div>
+                            <div class="account-email">{{ account.email_address }}</div>
                         </div>
                     </div>
                 </div>
+
+                <!-- Folders -->
+                <div class="sidebar-section">
+                    <h6 class="sidebar-title">Pastas</h6>
+                    <ul class="folder-list">
+                        <li class="folder-item active" data-folder="inbox">
+                            <i class="bi bi-inbox"></i>
+                            <span class="folder-name">Caixa de Entrada</span>
+                            <span class="folder-count badge bg-primary" id="inboxCount">0</span>
+                        </li>
+                        <li class="folder-item" data-folder="sent">
+                            <i class="bi bi-send"></i>
+                            <span class="folder-name">Enviados</span>
+                            <span class="folder-count" id="sentCount"></span>
+                        </li>
+                        <li class="folder-item" data-folder="drafts">
+                            <i class="bi bi-file-earmark-text"></i>
+                            <span class="folder-name">Rascunhos</span>
+                            <span class="folder-count" id="draftsCount"></span>
+                        </li>
+                        <li class="folder-item" data-folder="trash">
+                            <i class="bi bi-trash"></i>
+                            <span class="folder-name">Lixeira</span>
+                            <span class="folder-count" id="trashCount"></span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Email Statistics -->
+                <div class="sidebar-section">
+                    <h6 class="sidebar-title">Estatísticas</h6>
+                    <div class="stats-container">
+                        <div class="stat-item">
+                            <div class="stat-value" id="totalEmails">0</div>
+                            <div class="stat-label">Total de Emails</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="unreadEmails">0</div>
+                            <div class="stat-label">Não Lidos</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="flaggedEmails">0</div>
+                            <div class="stat-label">Marcados</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="sidebar-section">
+                    <button class="btn btn-outline-primary w-100 mb-2" id="composeBtn">
+                        <i class="bi bi-pencil-square"></i> Escrever
+                    </button>
+                    <button class="btn btn-outline-secondary w-100" id="settingsBtn">
+                        <i class="bi bi-gear"></i> Configurações
+                    </button>
+                </div>
+
+                <!-- Sidebar Toggle for Mobile -->
+                <button class="sidebar-toggle d-md-none" id="sidebarToggle">
+                    <i class="bi bi-x-lg"></i>
+                </button>
             </div>
 
-            <!-- Email List -->
-            <div class="col-md-9 col-lg-10">
-                <div class="email-client">
-                    <!-- Header -->
-                    <div class="email-header">
-                        <div class="row align-items-center">
-                            <div class="col-md-6">
-                                <h2><i class="fas fa-inbox"></i> Inbox</h2>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="search-bar">
-                                    <div class="input-group">
-                                        <input type="text" class="form-control" id="search-input" placeholder="Search emails...">
-                                        <button class="btn btn-outline-secondary" type="button" id="search-btn">
-                                            <i class="fas fa-search"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+            <!-- Middle Pane - Email List -->
+            <div class="email-list-pane" id="emailListPane">
+                <!-- Search and Filters -->
+                <div class="email-list-header">
+                    <div class="search-bar mb-3">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-search"></i>
+                            </span>
+                            <input type="text" class="form-control" id="searchInput" 
+                                placeholder="Pesquisar emails...">
                         </div>
+                    </div>
+
+                    <!-- Filter Tabs -->
+                    <ul class="nav nav-pills nav-fill mb-3">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="#" data-filter="all">
+                                Todos
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-filter="unread">
+                                <i class="bi bi-envelope"></i> Não Lidos
+                                <span class="badge bg-primary ms-1" id="unreadBadge">0</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-filter="flagged">
+                                <i class="bi bi-flag"></i> Marcados
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-filter="attachments">
+                                <i class="bi bi-paperclip"></i> Com Anexos
+                            </a>
+                        </li>
+                    </ul>
+
+                    <!-- Bulk Actions -->
+                    <div class="bulk-actions mb-3" id="bulkActions" style="display: none;">
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-secondary" id="selectAllBtn">
+                                <i class="bi bi-check-all"></i> Selecionar Todos
+                            </button>
+                            <button class="btn btn-outline-secondary" id="markReadBtn">
+                                <i class="bi bi-envelope-open"></i> Marcar como Lido
+                            </button>
+                            <button class="btn btn-outline-secondary" id="markUnreadBtn">
+                                <i class="bi bi-envelope"></i> Marcar como Não Lido
+                            </button>
+                            <button class="btn btn-outline-danger" id="deleteSelectedBtn">
+                                <i class="bi bi-trash"></i> Eliminar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Email List -->
+                <div class="email-list" id="emailList">
+                    <!-- Loading State -->
+                    <div class="email-list-loading" id="emailListLoading">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">A carregar...</span>
+                        </div>
+                        <p class="mt-2">A carregar emails...</p>
+                    </div>
+
+                    <!-- Empty State -->
+                    <div class="email-list-empty" id="emailListEmpty" style="display: none;">
+                        <i class="bi bi-inbox fs-1"></i>
+                        <h5 class="mt-3">Nenhum email encontrado</h5>
+                        <p class="text-muted">A sua caixa de entrada está vazia</p>
+                        <button class="btn btn-primary btn-sm" onclick="window.emailClient.syncEmails()">
+                            <i class="bi bi-arrow-clockwise"></i> Sincronizar Agora
+                        </button>
+                    </div>
+
+                    <!-- Email Items Container -->
+                    <div class="email-items" id="emailItems">
+                        <!-- Email items will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Pagination -->
+                <div class="email-list-footer" id="emailPagination">
+                    <nav aria-label="Navegação de emails">
+                        <ul class="pagination pagination-sm justify-content-center mb-0">
+                            <!-- Pagination items will be inserted here -->
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+
+            <!-- Right Pane - Email Content -->
+            <div class="email-content-pane" id="emailContentPane">
+                <!-- No Email Selected State -->
+                <div class="email-content-empty" id="emailContentEmpty">
+                    <i class="bi bi-envelope-open fs-1"></i>
+                    <h5 class="mt-3">Selecione um email</h5>
+                    <p class="text-muted">Escolha um email da lista para visualizar</p>
+                </div>
+
+                <!-- Email Content -->
+                <div class="email-content" id="emailContent" style="display: none;">
+                    <!-- Email Header -->
+                    <div class="email-content-header">
                         <div class="email-actions">
-                            <button class="btn btn-primary btn-sm" id="refresh-btn">
-                                <i class="fas fa-sync-alt"></i> Refresh
+                            <button class="btn btn-sm btn-outline-secondary" id="backToListBtn">
+                                <i class="bi bi-arrow-left"></i>
                             </button>
-                            <button class="btn btn-outline-secondary btn-sm" id="mark-all-read-btn">
-                                <i class="fas fa-check-double"></i> Mark All Read
-                            </button>
+                            <div class="btn-group btn-group-sm ms-2">
+                                <button class="btn btn-outline-secondary" id="replyBtn" title="Responder">
+                                    <i class="bi bi-reply"></i>
+                                </button>
+                                <button class="btn btn-outline-secondary" id="replyAllBtn" title="Responder a Todos">
+                                    <i class="bi bi-reply-all"></i>
+                                </button>
+                                <button class="btn btn-outline-secondary" id="forwardBtn" title="Reencaminhar">
+                                    <i class="bi bi-forward"></i>
+                                </button>
+                            </div>
+                            <div class="btn-group btn-group-sm ms-2">
+                                <button class="btn btn-outline-secondary" id="flagBtn" title="Marcar">
+                                    <i class="bi bi-flag"></i>
+                                </button>
+                                <button class="btn btn-outline-secondary" id="markReadUnreadBtn" title="Marcar como Lido/Não Lido">
+                                    <i class="bi bi-envelope-open"></i>
+                                </button>
+                                <button class="btn btn-outline-danger" id="deleteBtn" title="Eliminar">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Email List -->
-                    <div class="email-list" id="email-list">
-                        <!-- Loading indicator -->
-                        <div class="text-center p-4" id="loading-indicator">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Loading...</span>
+                    <!-- Email Subject -->
+                    <div class="email-subject">
+                        <h4 id="emailSubject">Assunto do Email</h4>
+                    </div>
+
+                    <!-- Email Meta -->
+                    <div class="email-meta">
+                        <div class="email-from">
+                            <div class="sender-avatar">
+                                <i class="bi bi-person-circle"></i>
                             </div>
-                            <p class="mt-2">Loading emails...</p>
+                            <div class="sender-info">
+                                <div class="sender-name" id="senderName">Nome do Remetente</div>
+                                <div class="sender-email" id="senderEmail">email@exemplo.com</div>
+                            </div>
+                            <div class="email-date" id="emailDate">Data</div>
                         </div>
-                        
-                        <!-- Empty state -->
-                        <div class="empty-state d-none" id="empty-state">
-                            <div class="text-center p-5">
-                                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
-                                <h4>No emails found</h4>
-                                <p class="text-muted">Your inbox is empty or emails are loading.</p>
-                            </div>
+                        <div class="email-to mt-2">
+                            <span class="text-muted">Para:</span>
+                            <span id="emailTo">destinatario@exemplo.com</span>
                         </div>
                     </div>
 
-                    <!-- Email Detail Modal -->
-                    <div class="modal fade" id="emailDetailModal" tabindex="-1">
-                        <div class="modal-dialog modal-lg">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title" id="emailDetailTitle">Email Details</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                </div>
-                                <div class="modal-body" id="emailDetailBody">
-                                    <!-- Email content will be loaded here -->
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                    <button type="button" class="btn btn-danger" id="delete-email-btn">
-                                        <i class="fas fa-trash"></i> Delete
-                                    </button>
-                                </div>
-                            </div>
+                    <!-- Email Body -->
+                    <div class="email-body" id="emailBody">
+                        <!-- Email content will be inserted here -->
+                    </div>
+
+                    <!-- Attachments -->
+                    <div class="email-attachments" id="emailAttachments" style="display: none;">
+                        <h6><i class="bi bi-paperclip"></i> Anexos</h6>
+                        <div class="attachment-list" id="attachmentList">
+                            <!-- Attachments will be inserted here -->
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+</div>
 
-    <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{{ url_for('static', filename='js/email-client/EmailClientApp.js') }}"></script>
-    <script>
-        // Initialize email client
-        document.addEventListener('DOMContentLoaded', function() {
-            const emailClient = new EmailClientApp();
-            emailClient.init();
-        });
-    </script>
-</body>
-</html>
+<!-- Toast Container for Notifications -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="emailToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <i class="bi bi-info-circle me-2"></i>
+            <strong class="me-auto" id="toastTitle">Notificação</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Fechar"></button>
+        </div>
+        <div class="toast-body" id="toastMessage">
+            Mensagem
+        </div>
+    </div>
+</div>
+
+<!-- Hidden inputs for account data -->
+<input type="hidden" id="accountId" value="{{ account.id }}">
+<input type="hidden" id="accountEmail" value="{{ account.email_address }}">
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/email-client.js') }}"></script>
+<script>
+    // Initialize email client when DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+        window.emailClient = new EmailClient();
+        window.emailClient.init();
+    });
+</script>
+{% endblock %}

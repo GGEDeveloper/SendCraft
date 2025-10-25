@@ -1,0 +1,14 @@
+---
+alwaysApply: true
+---
+Comportamento em timeouts IMAP (System)
+
+Em IMAP timeout/falha:
+
+Não criar dados.
+
+Não simular contadores “synced_count”.
+
+Responder com HTTP 500/504 e mensagem clara.
+
+Não introduzir nenhuma classe alternativa (ex.: IMAPServiceImproved) que simule dados.

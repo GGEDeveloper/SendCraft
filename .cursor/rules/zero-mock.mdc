@@ -1,0 +1,20 @@
+---
+alwaysApply: true
+---
+Política Zero Mock (System)
+
+Proibido criar/semear dados mock/fake/sample/test/dev em qualquer ambiente.
+
+Proibido criar “serviços melhorados” que simulam IMAP ou geram dados fictícios.
+
+Proibido fallback com dados artificiais em timeouts; deve retornar erro HTTP 500/504.
+
+Proibido alterar .cpanel.yml para executar seeds.
+
+Proibido adicionar seeds a run_dev.py, app.py, wsgi, ou scripts de arranque.
+
+Frontend nunca cria dados; apenas chama API com JSON válido.
+
+Contas válidas: geral@alitools.pt ATIVA, encomendas@alitools.pt INATIVA (preservada). Nenhuma outra sem aprovação.
+
+Antes de commit/push: executar grep -R "local-sample|dev-|fake-|test-|mock-|sample-" sendcraft/. Se houver matches, abortar.

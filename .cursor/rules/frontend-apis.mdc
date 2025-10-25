@@ -1,0 +1,14 @@
+---
+alwaysApply: true
+---
+Frontend e APIs (System)
+
+O botão “Sincronizar” envia POST para /api/v1/emails/inbox/sync/:id com:
+
+Headers: Content-Type: application/json; Accept: application/json
+
+Body: {"folder":"INBOX","limit":20,"full_sync":false}
+
+Não alterar endpoints, nem adicionar side effects no frontend.
+
+Validar apenas que o fetch usa JSON.stringify e Content-Type correto.
