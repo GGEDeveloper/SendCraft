@@ -8,6 +8,7 @@ from .account import EmailAccount
 from .template import EmailTemplate
 from .log import EmailLog, EmailStatus
 from .email_inbox import EmailInbox
+from .autosync_config import AutosyncConfig
 
 __all__ = [
     'BaseModel',
@@ -18,5 +19,6 @@ __all__ = [
     'EmailTemplate',
     'EmailLog',
     'EmailStatus',
-    'EmailInbox'
+    'EmailInbox',
+    'AutosyncConfig'
 ]
