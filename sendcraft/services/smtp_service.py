@@ -106,8 +106,18 @@ class SMTPService:
                 return True, "Conexão SMTP estabelecida com sucesso"
                 
         except smtplib.SMTPAuthenticationError as e:
-            error_msg = f"Erro de autenticação SMTP: {str(e)}"
-            logger.error(f"SMTP authentication failed for {account.email_address}: {e}")
+            error_code = getattr(e, 'smtp_code', None)
+            error_msg_raw = getattr(e, 'smtp_error', str(e))
+            
+            # Mensagens mais específicas baseadas no código de erro
+            if error_code == 535:
+                error_msg = f"Credenciais SMTP inválidas. Verifique se o username '{account.smtp_username}' e password estão corretos no servidor {config['server']}."
+            elif error_code == 534:
+                error_msg = f"Autenticação SMTP falhou: mecanismo de autenticação não suportado."
+            else:
+                error_msg = f"Erro de autenticação SMTP (código {error_code}): {error_msg_raw}"
+            
+            logger.error(f"SMTP authentication failed for {account.email_address}: {e} (code: {error_code})")
             return False, error_msg
             
         except smtplib.SMTPConnectError as e:

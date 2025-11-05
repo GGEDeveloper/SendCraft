@@ -837,36 +837,20 @@ def api_account_test_smtp(account_id):
     """Testar conexão SMTP via AJAX"""
     try:
         account = EmailAccount.query.get_or_404(account_id)
-        encryption_key = current_app.config.get('SECRET_KEY', '')
+        encryption_key = current_app.config.get('ENCRYPTION_KEY') or current_app.config.get('SECRET_KEY')
         
-        # Testar conexão de forma simples
-        import smtplib
+        # Usar SMTPService para teste consistente
+        from sendcraft.services.smtp_service import SMTPService
         import time
         
         start_time = time.time()
-        result = {'success': False, 'error': None, 'response_time': 0}
+        smtp_service = SMTPService(encryption_key)
         
-        try:
-            if account.use_ssl:
-                server = smtplib.SMTP_SSL(account.smtp_server, account.smtp_port, timeout=10)
-            else:
-                server = smtplib.SMTP(account.smtp_server, account.smtp_port, timeout=10)
-                if account.use_tls:
-                    server.starttls()
-            
-            # Tentar fazer login (sem logar password em texto plano)
-            password = account.get_password(encryption_key)
-            server.login(account.smtp_username, password)
-            server.quit()
-            
-            result['success'] = True
-            result['response_time'] = round((time.time() - start_time) * 1000, 2)
-        except Exception as e:
-            result['error'] = str(e)
-            result['response_time'] = round((time.time() - start_time) * 1000, 2)
-            logger.error(f"SMTP test failed for {account.email_address}: {str(e)}")
+        # Testar conexão usando o serviço
+        success, message = smtp_service.test_connection(account)
+        response_time = round((time.time() - start_time) * 1000, 2)
         
-        if result['success']:
+        if success:
             return jsonify({
                 'success': True,
                 'message': 'Conexão SMTP estabelecida com sucesso!',
@@ -875,33 +859,25 @@ def api_account_test_smtp(account_id):
                     'port': account.smtp_port,
                     'tls': account.use_tls,
                     'ssl': account.use_ssl,
-                    'response_time': result.get('response_time', 'N/A'),
+                    'response_time': response_time,
                     'status': 'connected',
-                    'code': result.get('code', 250),
-                    'message': result.get('message', 'Conexão OK'),
+                    'message': message,
                     'security': 'TLS' if account.use_tls else 'SSL' if account.use_ssl else 'None'
                 }
             })
         else:
-            # Portuguese error messages
-            error_msg = result.get('error', 'Falha na conexão SMTP')
-            if 'authentication' in error_msg.lower() or '535' in error_msg:
-                error_msg = 'Credenciais SMTP inválidas'
-            elif 'connection' in error_msg.lower() or 'timeout' in error_msg.lower():
-                error_msg = 'Erro de conexão ao servidor SMTP'
-            elif 'refused' in error_msg.lower():
-                error_msg = 'Conexão recusada pelo servidor SMTP'
-            
+            # Mensagem de erro já vem formatada do SMTPService
             return jsonify({
                 'success': False,
-                'error': error_msg,
+                'error': message,
                 'details': {
                     'server': account.smtp_server,
                     'port': account.smtp_port,
                     'tls': account.use_tls,
                     'ssl': account.use_ssl,
                     'status': 'error',
-                    'message': error_msg,
+                    'message': message,
+                    'response_time': response_time,
                     'security': 'TLS' if account.use_tls else 'SSL' if account.use_ssl else 'None'
                 }
             })
