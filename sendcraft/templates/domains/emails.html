@@ -86,6 +86,48 @@
     </div>
 </div>
 
+<!-- Filtros -->
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Filtrar por Conta:</label>
+                <select class="form-select form-select-sm" id="filterAccount">
+                    <option value="">Todas as contas</option>
+                    {% for account in accounts %}
+                    <option value="{{ account.id }}">{{ account.email_address }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Período (dias):</label>
+                <select class="form-select form-select-sm" id="filterDays">
+                    <option value="30">Últimos 30 dias</option>
+                    <option value="90" selected>Últimos 90 dias</option>
+                    <option value="180">Últimos 180 dias</option>
+                    <option value="365">Últimos 365 dias</option>
+                    <option value="9999">Todos</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Status (Enviados):</label>
+                <select class="form-select form-select-sm" id="filterStatus">
+                    <option value="">Todos os status</option>
+                    <option value="sent">Enviado</option>
+                    <option value="delivered">Entregue</option>
+                    <option value="failed">Falhou</option>
+                    <option value="sending">Enviando</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button class="btn btn-sm btn-outline-primary w-100" onclick="applyFilters()">
+                    <i class="bi bi-funnel me-1"></i>Aplicar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Tabs -->
 <ul class="nav nav-tabs mb-4" id="emailTabs" role="tablist">
     <li class="nav-item" role="presentation">
@@ -328,7 +370,17 @@ async function loadSentEmails() {
     container.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div></div>';
     
     try {
-        const response = await fetch(`/api/v1/domains/${domainId}/emails/sent?limit=50&days=90`);
+        // Obter filtros
+        const accountId = document.getElementById('filterAccount')?.value || '';
+        const days = document.getElementById('filterDays')?.value || '90';
+        const status = document.getElementById('filterStatus')?.value || '';
+        
+        // Construir URL com filtros
+        let url = `/api/v1/domains/${domainId}/emails/sent?limit=100&days=${days}`;
+        if (accountId) url += `&account_id=${accountId}`;
+        if (status) url += `&status=${status}`;
+        
+        const response = await fetch(url);
         const result = await response.json();
         
         if (result.success) {
@@ -435,6 +487,19 @@ async function loadUnreadEmails() {
     }
 }
 
+// Aplicar filtros
+function applyFilters() {
+    // Recarregar tab ativa
+    const activeTab = document.querySelector('.nav-link.active');
+    if (activeTab && activeTab.id === 'sent-tab') {
+        loadSentEmails();
+    } else if (activeTab && activeTab.id === 'received-tab') {
+        loadReceivedEmails();
+    } else if (activeTab && activeTab.id === 'unread-tab') {
+        loadUnreadEmails();
+    }
+}
+
 // Carregar dados iniciais
 document.addEventListener('DOMContentLoaded', function() {
     loadStats();
@@ -452,6 +517,11 @@ document.addEventListener('DOMContentLoaded', function() {
             loadUnreadEmails();
         }
     });
+    
+    // Aplicar filtros quando Enter for pressionado
+    document.getElementById('filterAccount')?.addEventListener('change', applyFilters);
+    document.getElementById('filterDays')?.addEventListener('change', applyFilters);
+    document.getElementById('filterStatus')?.addEventListener('change', applyFilters);
 });
 </script>
 {% endblock %}
