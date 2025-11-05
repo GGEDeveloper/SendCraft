@@ -93,6 +93,19 @@
                         </td>
                         <td>
                             <div class="btn-group btn-group-sm" role="group">
+                                <a href="{{ url_for('web.domain_emails_view', domain_id=domain.id) }}" 
+                                   class="btn btn-outline-primary"
+                                   data-bs-toggle="tooltip" 
+                                   title="Ver Emails">
+                                    <i class="bi bi-envelope"></i>
+                                </a>
+                                <button type="button" 
+                                        class="btn btn-outline-info sync-all-btn"
+                                        data-domain-id="{{ domain.id }}"
+                                        data-bs-toggle="tooltip" 
+                                        title="Sincronizar Todas as Contas">
+                                    <i class="bi bi-arrow-clockwise"></i>
+                                </button>
                                 <a href="{{ url_for('web.domains_edit', domain_id=domain.id) }}" 
                                    class="btn btn-outline-secondary"
                                    data-bs-toggle="tooltip" 
@@ -196,4 +209,77 @@
         {% endif %}
     </div>
 </div>
+
+<script>
+// Sincronização de todas as contas do domínio
+document.querySelectorAll('.sync-all-btn').forEach(btn => {
+    btn.addEventListener('click', async function() {
+        const domainId = this.dataset.domainId;
+        const originalHtml = this.innerHTML;
+        
+        // Desabilitar botão e mostrar loading
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        
+        try {
+            const response = await fetch(`/api/v1/domains/${domainId}/sync-all`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    folder: 'INBOX',
+                    limit: 50,
+                    full_sync: false
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Mostrar toast de sucesso
+                const toast = document.createElement('div');
+                toast.className = 'toast align-items-center text-white bg-success border-0';
+                toast.setAttribute('role', 'alert');
+                toast.innerHTML = `
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            Sincronização concluída! ${result.total_synced} emails sincronizados de ${result.synced_accounts}/${result.total_accounts} contas.
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>
+                `;
+                document.body.appendChild(toast);
+                const bsToast = new bootstrap.Toast(toast);
+                bsToast.show();
+                setTimeout(() => toast.remove(), 5000);
+            } else {
+                throw new Error(result.error || 'Erro na sincronização');
+            }
+        } catch (error) {
+            console.error('Sync error:', error);
+            const toast = document.createElement('div');
+            toast.className = 'toast align-items-center text-white bg-danger border-0';
+            toast.setAttribute('role', 'alert');
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        Erro na sincronização: ${error.message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            `;
+            document.body.appendChild(toast);
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+            setTimeout(() => toast.remove(), 5000);
+        } finally {
+            // Restaurar botão
+            this.disabled = false;
+            this.innerHTML = originalHtml;
+        }
+    });
+});
+</script>
 {% endblock %}

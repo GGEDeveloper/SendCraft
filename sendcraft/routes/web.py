@@ -247,6 +247,33 @@ def domains_delete(domain_id):
         return redirect(url_for('web.domains_list'))
 
 
+@web_bp.route('/domains/<int:domain_id>/emails')
+def domain_emails_view(domain_id):
+    """Interface consolidada de emails do domínio"""
+    try:
+        domain = Domain.query.get_or_404(domain_id)
+        
+        # Buscar contas ativas do domínio
+        accounts = EmailAccount.query.filter_by(
+            domain_id=domain_id,
+            is_active=True
+        ).all()
+        
+        if not accounts:
+            flash('Nenhuma conta ativa encontrada para este domínio', 'warning')
+            return redirect(url_for('web.domains_list'))
+        
+        return render_template('domains/emails.html',
+                             domain=domain,
+                             accounts=accounts,
+                             page_title=f'Emails - {domain.name}')
+        
+    except Exception as e:
+        logger.error(f"Error loading domain emails view: {e}", exc_info=True)
+        flash('Erro ao carregar visão de emails do domínio', 'error')
+        return redirect(url_for('web.domains_list'))
+
+
 # ===== ACCOUNTS ROUTES =====
 @web_bp.route('/accounts')
 def accounts_list():

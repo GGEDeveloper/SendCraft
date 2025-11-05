@@ -8,7 +8,7 @@ from flask import Blueprint, jsonify
 api_v1_bp = Blueprint('api_v1', __name__)
 
 # Importar sub-blueprints
-from . import send, accounts, templates, logs, health, emails_inbox
+from . import send, accounts, templates, logs, health, emails_inbox, domain_emails
 
 # Registrar sub-blueprints
 api_v1_bp.register_blueprint(send.bp)
@@ -17,6 +17,7 @@ api_v1_bp.register_blueprint(templates.bp)
 api_v1_bp.register_blueprint(logs.bp)
 api_v1_bp.register_blueprint(health.bp)
 api_v1_bp.register_blueprint(emails_inbox.bp)
+api_v1_bp.register_blueprint(domain_emails.bp)
 
 # Rota raiz da API
 @api_v1_bp.route('/', methods=['GET'])
