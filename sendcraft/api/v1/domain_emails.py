@@ -233,17 +233,21 @@ def get_sent_emails(domain_id: int):
         account_id = request.args.get('account_id', type=int)
         status_filter = request.args.get('status')
         
-        # Data mínima
-        since_date = datetime.utcnow() - timedelta(days=days)
-        
-        # Query base - usar sent_at se disponível, senão created_at como fallback
+        # Query base
         query = EmailLog.query.join(EmailAccount).filter(
-            EmailAccount.domain_id == domain_id,
-            or_(
-                EmailLog.sent_at >= since_date,
-                and_(EmailLog.sent_at.is_(None), EmailLog.created_at >= since_date)
-            )
+            EmailAccount.domain_id == domain_id
         )
+        
+        # Filtrar por data apenas se days < 9999 (Todos)
+        if days < 9999:
+            since_date = datetime.utcnow() - timedelta(days=days)
+            # Usar sent_at se disponível, senão created_at como fallback
+            query = query.filter(
+                or_(
+                    EmailLog.sent_at >= since_date,
+                    and_(EmailLog.sent_at.is_(None), EmailLog.created_at >= since_date)
+                )
+            )
         
         # Filtros opcionais
         if account_id:
