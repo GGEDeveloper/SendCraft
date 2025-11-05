@@ -113,28 +113,24 @@ def init_extensions(app: Flask) -> None:
 
 def register_blueprints(app: Flask) -> None:
     """Registra blueprints da aplicação"""
-    # ❌ REMOVER import conflitante
-    # from .api.v1 import api_v1_bp  # ← COMENTAR/REMOVER ESTA LINHA
-    
     from .routes.web import web_bp
     from .routes.external_api import external_api_bp
     from .routes.api_docs import docs_bp
     from .routes.email_api import email_api_bp  # ✅ E-commerce API v1 (account auth)
+    from .api.v1 import api_v1_bp  # ✅ API v1 completa (inclui inbox, logs, etc)
     
     # ✅ REGISTRAR blueprints (ordem importante)
     app.register_blueprint(web_bp)                    # Interface web
     app.register_blueprint(email_api_bp)              # ✅ API v1 E-commerce (account auth)
+    app.register_blueprint(api_v1_bp, url_prefix='/api/v1')  # ✅ API v1 completa (inbox, logs, etc)
     app.register_blueprint(external_api_bp)           # APIs externas
     app.register_blueprint(docs_bp)                   # Documentação
-    
-    # ❌ REMOVER registro conflitante  
-    # app.register_blueprint(api_v1_bp, url_prefix='/api/v1')  # ← COMENTAR/REMOVER
     
     # Error handlers
     from .api.errors import register_error_handlers
     register_error_handlers(app)
     
-    app.logger.info("Blueprints registered: web, email_api_v1, external_api, docs")
+    app.logger.info("Blueprints registered: web, email_api_v1, api_v1 (inbox/logs), external_api, docs")
     app.logger.info("✅ Route conflicts resolved - using account-based auth only")
 
 

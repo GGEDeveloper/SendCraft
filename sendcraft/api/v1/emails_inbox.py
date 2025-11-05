@@ -212,7 +212,7 @@ def sync_account_inbox(account_id: int):
         imap_service = IMAPService(account)
         
         # Conectar ao servidor
-        encryption_key = current_app.config.get('SECRET_KEY', '')
+        encryption_key = current_app.config.get('ENCRYPTION_KEY') or current_app.config.get('SECRET_KEY', '')
         config = account.get_imap_config(encryption_key)
         
         if not imap_service.connect(config):
@@ -301,7 +301,7 @@ def mark_email_read(account_id: int, email_id: int):
             account = email.account
             imap_service = IMAPService(account)
             
-            encryption_key = current_app.config.get('SECRET_KEY', '')
+            encryption_key = current_app.config.get('ENCRYPTION_KEY') or current_app.config.get('SECRET_KEY', '')
             config = account.get_imap_config(encryption_key)
             
             if imap_service.connect(config):
@@ -356,7 +356,7 @@ def toggle_email_flag(account_id: int, email_id: int):
             account = email.account
             imap_service = IMAPService(account)
             
-            encryption_key = current_app.config.get('SECRET_KEY', '')
+            encryption_key = current_app.config.get('ENCRYPTION_KEY') or current_app.config.get('SECRET_KEY', '')
             config = account.get_imap_config(encryption_key)
             
             if imap_service.connect(config):
@@ -415,7 +415,7 @@ def delete_email(account_id: int, email_id: int):
                 account = email.account
                 imap_service = IMAPService(account)
                 
-                encryption_key = current_app.config.get('SECRET_KEY', '')
+                encryption_key = current_app.config.get('ENCRYPTION_KEY') or current_app.config.get('SECRET_KEY', '')
                 config = account.get_imap_config(encryption_key)
                 
                 if imap_service.connect(config):
@@ -483,7 +483,7 @@ def move_email(account_id: int, email_id: int):
             account = email.account
             imap_service = IMAPService(account)
             
-            encryption_key = current_app.config.get('SECRET_KEY', '')
+            encryption_key = current_app.config.get('ENCRYPTION_KEY') or current_app.config.get('SECRET_KEY', '')
             config = account.get_imap_config(encryption_key)
             
             if imap_service.connect(config):
