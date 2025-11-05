@@ -3,6 +3,7 @@ from flask import Blueprint, jsonify, request, current_app
 from flask_cors import cross_origin
 from typing import Dict, Any, List
 from datetime import datetime, timedelta
+from sqlalchemy import or_, and_, case
 
 from ...models import Domain, EmailAccount, EmailInbox, EmailLog
 from ...models.log import EmailStatus
@@ -235,10 +236,13 @@ def get_sent_emails(domain_id: int):
         # Data mínima
         since_date = datetime.utcnow() - timedelta(days=days)
         
-        # Query base
+        # Query base - usar sent_at se disponível, senão created_at como fallback
         query = EmailLog.query.join(EmailAccount).filter(
             EmailAccount.domain_id == domain_id,
-            EmailLog.sent_at >= since_date
+            or_(
+                EmailLog.sent_at >= since_date,
+                and_(EmailLog.sent_at.is_(None), EmailLog.created_at >= since_date)
+            )
         )
         
         # Filtros opcionais
@@ -252,12 +256,20 @@ def get_sent_emails(domain_id: int):
             except ValueError:
                 pass  # Status inválido, ignorar
         
-        # Ordenar por data de envio (mais recente primeiro)
-        logs = query.order_by(EmailLog.sent_at.desc()).limit(limit).all()
+        # Ordenar por data de envio (mais recente primeiro) - usar sent_at ou created_at como fallback
+        logs = query.order_by(
+            case(
+                (EmailLog.sent_at.isnot(None), EmailLog.sent_at),
+                else_=EmailLog.created_at
+            ).desc()
+        ).limit(limit).all()
         
         # Serializar
         logs_data = []
         for log in logs:
+            # Usar sent_at se disponível, senão created_at como fallback
+            effective_date = log.sent_at if log.sent_at else log.created_at
+            
             logs_data.append({
                 'id': log.id,
                 'account_id': log.account_id,
@@ -266,6 +278,8 @@ def get_sent_emails(domain_id: int):
                 'subject': log.subject,
                 'status': log.status.value,
                 'sent_at': log.sent_at.isoformat() if log.sent_at else None,
+                'created_at': log.created_at.isoformat() if log.created_at else None,
+                'effective_date': effective_date.isoformat() if effective_date else None,
                 'delivered_at': log.delivered_at.isoformat() if log.delivered_at else None,
                 'error_message': log.error_message,
                 'message_id': log.message_id
@@ -395,13 +409,19 @@ def get_domain_email_stats(domain_id: int):
         thirty_days_ago = datetime.utcnow() - timedelta(days=30)
         sent_30d = EmailLog.query.join(EmailAccount).filter(
             EmailAccount.domain_id == domain_id,
-            EmailLog.sent_at >= thirty_days_ago,
+            or_(
+                EmailLog.sent_at >= thirty_days_ago,
+                and_(EmailLog.sent_at.is_(None), EmailLog.created_at >= thirty_days_ago)
+            ),
             EmailLog.status.in_([EmailStatus.SENT, EmailStatus.DELIVERED])
         ).count()
         
         failed_30d = EmailLog.query.join(EmailAccount).filter(
             EmailAccount.domain_id == domain_id,
-            EmailLog.sent_at >= thirty_days_ago,
+            or_(
+                EmailLog.sent_at >= thirty_days_ago,
+                and_(EmailLog.sent_at.is_(None), EmailLog.created_at >= thirty_days_ago)
+            ),
             EmailLog.status == EmailStatus.FAILED
         ).count()
         
