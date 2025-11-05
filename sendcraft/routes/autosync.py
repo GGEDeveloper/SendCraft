@@ -2,7 +2,6 @@
 Rotas para configuração de autosync.
 """
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, current_app
-from flask_login import login_required
 from typing import Dict, Any
 
 from ..models import AutosyncConfig, Domain, EmailAccount
