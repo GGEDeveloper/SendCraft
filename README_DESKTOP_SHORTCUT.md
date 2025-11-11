@@ -110,3 +110,20 @@ Se quiser que o servidor execute em background sem janela de terminal, crie uma 
 - `start_sendcraft.ps1` - Script PowerShell alternativo
 - `create_desktop_shortcut.ps1` - Script para criar atalho automaticamente
 
+## 🔐 Permissões de Execução (PowerShell)
+
+Se o PowerShell bloquear a execução dos scripts, execute:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+Ou execute os scripts com bypass temporário:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File create_desktop_shortcut.ps1
+```
+
+⚠️ Sempre execute esses comandos numa janela de PowerShell com permissões adequadas.
+
+
